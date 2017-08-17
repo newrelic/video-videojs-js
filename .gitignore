@@ -1,0 +1,20 @@
+.DS_Store
+*.swp
+*.swo
+*.orig
+.idea
+ext/
+.vscode
+
+# Dependencies
+node_modules
+bower_components
+
+# temp and output
+dist/
+coverage/
+.nyc_output
+manifest.json
+
+# logs
+*.log

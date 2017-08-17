@@ -1,0 +1,28 @@
+{
+  "name": "newrelic-video-videojs",
+  "version": "0.1.0",
+  "description": "New relic tracker for Videojs",
+  "main": "src/index.js",
+  "scripts": {
+    "build": "webpack -p",
+    "build:dev": "webpack",
+    "watch": "webpack -p --progress --color --watch",
+    "watch:dev": "webpack --progress --color --watch",
+    "clean": "rm -rf dist"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@source.datanerd.us:video/akamai-js.git"
+  },
+  "author": "Jordi Aguilar",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "newrelic-video-core": "https://source.datanerd.us/api/v3/repos/video/core-js/tarball/master?access_token=a0ffea13c434546f2378ab5244846bb1a3d0a690"
+  },
+  "devDependencies": {
+    "babel-core": "^6.25.0",
+    "babel-loader": "^7.1.1",
+    "babel-preset-env": "^1.6.0",
+    "webpack": "^3.4.1"
+  }
+}

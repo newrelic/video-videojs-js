@@ -1,0 +1,19 @@
+{
+    "extends": "standard",
+    "parserOptions": {
+        "ecmaVersion": 6,
+        "sourceType": "module"
+    },
+    "plugins": [
+        "standard",
+        "mocha"
+    ],
+    "env": {
+        "mocha": true
+    },
+    "globals": {
+        "newrelic": true,
+        "nrvideo": true,
+        "videojs": true
+    }
+}
