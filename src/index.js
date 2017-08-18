@@ -2,5 +2,5 @@ import * as nrvideo from 'newrelic-video-core'
 import Tracker from './tracker'
 import './register-plugin'
 
-nrvideo.AmpTracker = Tracker
+nrvideo.VideojsTracker = Tracker
 module.exports = nrvideo

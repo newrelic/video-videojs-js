@@ -5,8 +5,7 @@
         "sourceType": "module"
     },
     "plugins": [
-        "standard",
-        "mocha"
+        "standard"
     ],
     "env": {
         "mocha": true
