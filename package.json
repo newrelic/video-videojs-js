@@ -9,7 +9,7 @@
     "watch": "webpack -p --progress --color --watch",
     "watch:dev": "webpack --progress --color --watch",
     "prezip": "npm run build",
-    "zip": "zip -P newrelic -r videojs.zip dist samples README.md CHANGELOG.md EULA.md",
+    "zip": "zip -P newrelic -x '*.DS_Store' -r videojs.zip dist samples README.md CHANGELOG.md EULA.md",
     "clean": "rm -rf dist *.zip"
   },
   "repository": {

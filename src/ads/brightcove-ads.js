@@ -15,7 +15,6 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
   }
 
   registerListeners () {
-    // Console all events if logLevel=DEBUG
     nrvideo.Log.debugCommonVideoEvents(this.player, [
       null,
       'ima3-ready',
@@ -37,56 +36,51 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
       'ads-allpods-completed'
     ])
 
-    // Enable playhead monitor
-    this.monitorPlayhead(true, false)
-
-    // Register listeners
-    this.player.on('ima3-started', this.imaStartedListener.bind(this))
-    this.player.on('ima3-paused', this.imaPausedListener.bind(this))
-    this.player.on('ima3-resumed', this.imaResumedListener.bind(this))
-    this.player.on('ima3-complete', this.imaCompleteListener.bind(this))
-    this.player.on('ima3-skipped', this.imaSkippedListener.bind(this))
-    this.player.on('adserror', this.errorListener.bind(this))
-    this.player.on('ads-click', this.clickListener.bind(this))
+    this.player.on('ima3-started', this.onStarted.bind(this))
+    this.player.on('ima3-paused', this.onPaused.bind(this))
+    this.player.on('ima3-resumed', this.onResume.bind(this))
+    this.player.on('ima3-complete', this.onComplete.bind(this))
+    this.player.on('ima3-skipped', this.onSkipped.bind(this))
+    this.player.on('adserror', this.onError.bind(this))
+    this.player.on('ads-click', this.onClick.bind(this))
   }
 
-  imaStartedListener (e) {
+  unregisterListeners () {
+    this.player.off('ima3-started', this.onStarted)
+    this.player.off('ima3-paused', this.onPaused)
+    this.player.off('ima3-resumed', this.onResume)
+    this.player.off('ima3-complete', this.onComplete)
+    this.player.off('ima3-skipped', this.onSkipped)
+    this.player.off('adserror', this.onError)
+    this.player.off('ads-click', this.onClick)
+  }
+
+  onStarted (e) {
     this.sendRequest()
     this.sendStart()
   }
 
-  imaPausedListener (e) {
+  onPaused (e) {
     this.sendPause()
   }
 
-  imaResumedListener (e) {
+  onResume (e) {
     this.sendResume()
   }
 
-  imaCompleteListener (e) {
+  onComplete (e) {
     this.sendEnd()
   }
 
-  imaSkippedListener (e) {
+  onSkipped (e) {
     this.sendEnd({ skipped: true })
   }
 
-  errorListener (e) {
+  onError (e) {
     this.sendError()
   }
 
-  clickListener (e) {
+  onClick (e) {
     this.sendClick()
-  }
-
-  unregisterListeners () {
-    // unregister listeners
-    this.player.off('ima3-started', this.imaStartedListener)
-    this.player.off('ima3-paused', this.imaPausedListener)
-    this.player.off('ima3-resumed', this.imaResumedListener)
-    this.player.off('ima3-complete', this.imaCompleteListener)
-    this.player.off('ima3-skipped', this.imaSkippedListener)
-    this.player.off('adserror', this.errorListener)
-    this.player.off('ads-click', this.clickListener)
   }
 }

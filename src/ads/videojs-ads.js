@@ -10,20 +10,8 @@ export default class VideojsAdsTracker extends nrvideo.Tracker {
     return version
   }
 
-  isAutoplayed () {
-    return null
-  }
-
   isMuted () {
     return this.player.muted()
-  }
-
-  getPlayrate () {
-    return null
-  }
-
-  getPreload () {
-    return null
   }
 
   getRenditionHeight () {
