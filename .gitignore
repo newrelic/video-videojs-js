@@ -14,7 +14,7 @@ bower_components
 dist/
 coverage/
 .nyc_output
-manifest.json
+*.zip
 
 # logs
 *.log
