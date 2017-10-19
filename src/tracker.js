@@ -162,13 +162,15 @@ export default class VideojsTracker extends nrvideo.Tracker {
   }
 
   onAdsready () {
-    if (typeof google !== 'undefined' && BrightcoveAdsTracker.isUsing(this.player)) { // BC
-      this.setAdsTracker(new BrightcoveAdsTracker(this.player))
-    } else if (typeof google !== 'undefined' && ImaAdsTracker.isUsing(this.player)) { // IMA
-      this.setAdsTracker(new ImaAdsTracker(this.player))
-    // } else if (OnceuxAdsTracker.isUsing(this)) { // OnceUX
-    } else { // Generic
-      this.setAdsTracker(new VideojsAdsTracker(this.player))
+    if (!this.adsTracker) {
+      if (typeof google !== 'undefined' && BrightcoveAdsTracker.isUsing(this.player)) { // BC
+        this.setAdsTracker(new BrightcoveAdsTracker(this.player))
+      } else if (typeof google !== 'undefined' && ImaAdsTracker.isUsing(this.player)) { // IMA
+        this.setAdsTracker(new ImaAdsTracker(this.player))
+      // } else if (OnceuxAdsTracker.isUsing(this)) { // OnceUX
+      } else { // Generic
+        this.setAdsTracker(new VideojsAdsTracker(this.player))
+      }
     }
   }
 
