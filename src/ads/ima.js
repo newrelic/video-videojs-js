@@ -12,22 +12,41 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
   }
 
   getDuration () {
-    if (this.player.ima.getAdsManager().getCurrentAd() !== null) {
-      this.duration = this.player.ima.getAdsManager().getCurrentAd().getDuration()
+    let manager = this.player.ima.getAdsManager()
+    if (manager) {
+      let ad = manager.getCurrentAd()
+      if (ad) {
+        this.duration = ad.getDuration()
+      }
     }
     return this.duration * 1000
   }
 
   getSrc () {
-    return this.player.ima.getAdsManager().getCurrentAd().getMediaUrl()
+    let manager = this.player.ima.getAdsManager()
+    if (manager) {
+      let ad = manager.getCurrentAd()
+      if (ad) {
+        return ad.getMediaUrl()
+      }
+    }
   }
 
   getTitle () {
-    return this.player.ima.getAdsManager().getCurrentAd().getTitle()
+    let manager = this.player.ima.getAdsManager()
+    if (manager) {
+      let ad = manager.getCurrentAd()
+      if (ad) {
+        return ad.getTitle()
+      }
+    }
   }
 
   getPlayhead () {
-    return (this.getDuration() - this.player.ima.getAdsManager().getRemainingTime()) * 1000
+    let manager = this.player.ima.getAdsManager()
+    if (manager) {
+      return (this.getDuration() - manager.getRemainingTime()) * 1000
+    }
   }
 
   getPlayrate () {
