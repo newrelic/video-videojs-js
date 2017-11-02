@@ -7,7 +7,7 @@ import VideojsAdsTracker from './ads/videojs-ads'
 import ImaAdsTracker from './ads/ima'
 import BrightcoveAdsTracker from './ads/brightcove-ads'
 
-export default class VideojsTracker extends nrvideo.Tracker {
+export default class VideojsTracker extends nrvideo.VideoTracker {
   getTech () {
     let tech = this.player.tech({ IWillNotUseThisInPlugins: true })
     if (tech) {

@@ -1,7 +1,7 @@
 import * as nrvideo from 'newrelic-video-core'
 import { version } from '../../package.json'
 
-export default class VideojsAdsTracker extends nrvideo.Tracker {
+export default class VideojsAdsTracker extends nrvideo.VideoTracker {
   getTrackerName () {
     return 'videojs-ads'
   }
