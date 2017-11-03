@@ -1,13 +1,17 @@
 import * as nrvideo from 'newrelic-video-core'
 import VideojsAdsTracker from './videojs-ads'
 
-export default class ImaAdsTracker extends VideojsAdsTracker {
+export default class BrightcoveImaAdsTracker extends VideojsAdsTracker {
   static isUsing (player) {
     return !!player.ima3
   }
 
   getTrackerName () {
-    return 'brightcove-ads'
+    return 'brightcove-ima-ads'
+  }
+
+  getPlayerName () {
+    return 'brightcove-ima-ads'
   }
 
   getPlayhead () {

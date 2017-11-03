@@ -5,7 +5,8 @@ import HlsJsTech from './techs/hls-js'
 import ShakaTech from './techs/shaka'
 import VideojsAdsTracker from './ads/videojs-ads'
 import ImaAdsTracker from './ads/ima'
-import BrightcoveAdsTracker from './ads/brightcove-ads'
+import BrightcoveImaAdsTracker from './ads/brightcove-ima'
+import FreewheelAdsTracker from './ads/freewheel'
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
   getTech () {
@@ -163,11 +164,13 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
   onAdsready () {
     if (!this.adsTracker) {
-      if (typeof google !== 'undefined' && BrightcoveAdsTracker.isUsing(this.player)) { // BC
-        this.setAdsTracker(new BrightcoveAdsTracker(this.player))
-      } else if (typeof google !== 'undefined' && ImaAdsTracker.isUsing(this.player)) { // IMA
+      if (BrightcoveImaAdsTracker.isUsing(this.player)) { // BC IMA
+        this.setAdsTracker(new BrightcoveImaAdsTracker(this.player))
+      } else if (ImaAdsTracker.isUsing(this.player)) { // IMA
         this.setAdsTracker(new ImaAdsTracker(this.player))
-      // } else if (OnceuxAdsTracker.isUsing(this)) { // OnceUX
+      } else if (FreewheelAdsTracker.isUsing(this.player)) { // FW
+        this.setAdsTracker(new FreewheelAdsTracker(this.player))
+      // } else if (OnceAdsTracker.isUsing(this)) { // Once
       } else { // Generic
         this.setAdsTracker(new VideojsAdsTracker(this.player))
       }
@@ -231,5 +234,6 @@ export {
   ShakaTech,
   VideojsAdsTracker,
   ImaAdsTracker,
-  BrightcoveAdsTracker
+  BrightcoveImaAdsTracker,
+  FreewheelAdsTracker
 }

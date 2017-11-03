@@ -14,6 +14,7 @@ Add **scripts** inside `dist` folder to your page.
 // var player = videojs('my-player')
 nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player))
 ```
+
 ### VideoJS Plugin Ecosystem
 You can use built-in Videojs plugin system.
 

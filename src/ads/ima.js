@@ -4,7 +4,7 @@ import VideojsAdsTracker from './videojs-ads'
 
 export default class ImaAdsTracker extends VideojsAdsTracker {
   static isUsing (player) {
-    return !!player.ima
+    return !!player.ima && typeof google !== 'undefined'
   }
 
   getTrackerName () {

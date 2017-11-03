@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [0.2.0] - 2017/11/03
+### Add
+- Added support for `FreeWheel` ads.
+
 ## [0.1.2] - 2017/11/02
 ### Lib
 - Updated project to support core `0.5+`.

@@ -13,6 +13,7 @@
     "globals": {
         "newrelic": true,
         "nrvideo": true,
-        "videojs": true
+        "videojs": true,
+        "tv": true
     }
 }

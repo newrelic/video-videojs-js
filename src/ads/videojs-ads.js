@@ -23,7 +23,7 @@ export default class VideojsAdsTracker extends nrvideo.VideoTracker {
   }
 
   getPlayerName () {
-    return 'contrib-ads'
+    return 'videojs-ads'
   }
 
   getPlayerVersion () {
@@ -112,7 +112,7 @@ export default class VideojsAdsTracker extends nrvideo.VideoTracker {
   }
 
   onAdsClick (e) {
-    this.sendAdClick()
+    this.sendAdClick({ url: 'unknown' })
   }
 
   onPodStart (e) {
