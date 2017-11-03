@@ -19,7 +19,7 @@
   "author": "Jordi Aguilar",
   "license": "UNLICENSED",
   "dependencies": {
-    "newrelic-video-core": "https://source.datanerd.us/api/v3/repos/video/core-js/tarball/master?access_token=a0ffea13c434546f2378ab5244846bb1a3d0a690"
+    "newrelic-video-core": "git+https://github.com/newrelic/video-core-js.git"
   },
   "devDependencies": {
     "babel-core": "^6.25.0",

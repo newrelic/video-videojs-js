@@ -4,42 +4,49 @@ import VideojsAdsTracker from './videojs-ads'
 
 export default class ImaAdsTracker extends VideojsAdsTracker {
   static isUsing (player) {
-    return !!player.ima && typeof google !== 'undefined'
+    return player.ima && typeof google !== 'undefined'
   }
 
   getTrackerName () {
     return 'ima-ads'
   }
 
+  getPlayerName () {
+    return 'ima'
+  }
+
+  getPlayerVersion () {
+    return 'ima: ' + google.ima.VERSION + '; contrib-ads: ' + this.player.ads.VERSION
+  }
+
   getDuration () {
-    let manager = this.player.ima.getAdsManager()
-    if (manager) {
-      let ad = manager.getCurrentAd()
-      if (ad) {
-        this.duration = ad.getDuration()
-      }
-    }
-    return this.duration * 1000
+    try {
+      return this.player.ima.getAdsManager().getCurrentAd().getDuration() * 1000
+    } catch (err) { /* do nothing */ }
+  }
+
+  getVideoId () {
+    try {
+      return this.player.ima.getAdsManager().getCurrentAd().getAdId()
+    } catch (err) { /* do nothing */ }
+  }
+
+  getAdCreativeId () {
+    try {
+      return this.player.ima.getAdsManager().getCurrentAd().getCreativeId()
+    } catch (err) { /* do nothing */ }
   }
 
   getSrc () {
-    let manager = this.player.ima.getAdsManager()
-    if (manager) {
-      let ad = manager.getCurrentAd()
-      if (ad) {
-        return ad.getMediaUrl()
-      }
-    }
+    try {
+      return this.player.ima.getAdsManager().getCurrentAd().getMediaUrl()
+    } catch (err) { /* do nothing */ }
   }
 
   getTitle () {
-    let manager = this.player.ima.getAdsManager()
-    if (manager) {
-      let ad = manager.getCurrentAd()
-      if (ad) {
-        return ad.getTitle()
-      }
-    }
+    try {
+      return this.player.ima.getAdsManager().getCurrentAd().getTitle()
+    } catch (err) { /* do nothing */ }
   }
 
   getPlayhead () {
@@ -53,12 +60,8 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
     return this.player.playbackRate()
   }
 
-  getPlayerName () {
+  getAdPartner () {
     return 'ima'
-  }
-
-  getPlayerVersion () {
-    return 'ima: ' + google.ima.VERSION + '; contrib-ads: ' + this.player.ads.VERSION
   }
 
   registerListeners () {

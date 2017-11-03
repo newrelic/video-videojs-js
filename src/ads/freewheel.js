@@ -29,6 +29,20 @@ export default class FreewheelAdsTracker extends VideojsAdsTracker {
     }
   }
 
+  getVideoId () {
+    return this.player.ads.ad.id
+  }
+
+  getAdPartner () {
+    return 'freewheel'
+  }
+
+  getAdCreativeId () {
+    try {
+      return this.player.ads.provider.event.adInstance.getActiveCreativeRendition().getId()
+    } catch (err) { /* do nothing */ }
+  }
+
   getSrc () {
     try {
       let acr = this.player.ads.provider.event.adInstance.getActiveCreativeRendition()
