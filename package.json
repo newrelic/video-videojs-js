@@ -10,18 +10,20 @@
     "watch:dev": "webpack --progress --color --watch",
     "prezip": "npm run build",
     "zip": "zip -P newrelic -x '*.DS_Store' -x 'samples/agent.js' -r videojs.zip dist samples README.md CHANGELOG.md EULA.md",
-    "clean": "rm -rf dist *.zip"
+    "clean": "rm -rf dist *.zip",
+    "deploy": "node scripts/deploy.js"
   },
   "repository": {
     "type": "git",
-    "url": "git@source.datanerd.us:video/videojs-js.git"
+    "url": "https://github.com/newrelic/video-videojs-js.git"
   },
   "author": "Jordi Aguilar",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "dependencies": {
-    "newrelic-video-core": "git+https://github.com/newrelic/video-core-js.git"
+    "newrelic-video-core": "git+https://github.com/newrelic/video-core-js.git#v0.9.1"
   },
   "devDependencies": {
+    "aws-sdk": "^2.157.0",
     "babel-core": "^6.25.0",
     "babel-loader": "^7.1.1",
     "babel-preset-env": "^1.6.0",
