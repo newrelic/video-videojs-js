@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## [0.3.1] - 2018/01/11
+### Remove
+- Remove old reference to `sendPlayerInit`.
+
 ## [0.3.0] - 2017/11/03
 ### Add
 - Add support for `creativeId`, `adId` and `adPartner`.

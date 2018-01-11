@@ -20,7 +20,7 @@
   "author": "Jordi Aguilar",
   "license": "MIT",
   "dependencies": {
-    "newrelic-video-core": "git+https://github.com/newrelic/video-core-js.git#v0.9.1"
+    "newrelic-video-core": "github:newrelic/video-core-js#v0.9.3"
   },
   "devDependencies": {
     "aws-sdk": "^2.157.0",
