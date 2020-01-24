@@ -18,6 +18,9 @@
     "url": "https://github.com/newrelic/video-videojs-js.git"
   },
   "author": "Jordi Aguilar",
+  "contributors": [
+    "Andreu Santarén Llop"
+  ],
   "license": "MIT",
   "dependencies": {
     "newrelic-video-core": "github:newrelic/video-core-js#v0.13.0"
