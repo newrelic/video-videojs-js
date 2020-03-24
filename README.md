@@ -22,12 +22,4 @@ You can use built-in Videojs plugin system.
 // var player = videojs('my-player')
 player.newrelic()
 ```
-## Usage
-Load **scripts** inside `dist` folder into your page. Do it **AFTER** loading Ooyala's player. 
-```html
-<script src="../dist/newrelic-video-ooyala.min.js"></script>
-```
-That's it, any ooyala video loaded into the page will automatically send metrics.
-
-> If `dist` folder is not included, run `npm i && npm run build` to build it.
 
