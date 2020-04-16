@@ -1,6 +1,11 @@
 # CHANGELOG
 
-## Unreleased
+## [0.4.0] - 2020/04/16
+### Add
+- OS stuff.
+
+### Update
+- Video Core library.
 
 ## [0.3.1] - 2018/01/11
 ### Remove
