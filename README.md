@@ -1,3 +1,5 @@
+[![Community Project header](https://github.com/newrelic/open-source-office/raw/master/examples/categories/images/Community_Project.png)](https://github.com/newrelic/open-source-office/blob/master/examples/categories/index.md#community-project)
+
 # New Relic VideoJS Tracker
 
 The New Relic VideoJS tracker instruments the VideoJS player and Brightcove player. It also instruments Ads for FreeWheel and IMA. Makes use of [newrelic-video-core](https://github.com/newrelic/video-core-js), extending the `VideoTracker` class.
