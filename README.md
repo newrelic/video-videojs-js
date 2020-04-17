@@ -2,6 +2,26 @@
 
 The New Relic VideoJS tracker instruments the VideoJS player and Brightcove player. It also instruments Ads for FreeWheel and IMA. Makes use of [newrelic-video-core](https://github.com/newrelic/video-core-js), extending the `VideoTracker` class.
 
+## Build
+
+Install dependencies:
+
+```
+$ npm install
+```
+
+And build:
+
+```
+$ npm run build:dev
+```
+
+Or if you need a production build:
+
+```
+$ npm run build
+```
+
 ## Usage
 Add **scripts** inside `dist` folder to your page.
 
