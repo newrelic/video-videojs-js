@@ -68,13 +68,9 @@ https://discuss.newrelic.com/t/{{ APP_NAME }}
 
 ## Issues / enhancement requests
 
-> TODO: Update path
-
 Issues and enhancement requests can be submitted in the [Issues tab of this repository](../../issues). Please search for and review the existing open issues before submitting a new issue.
 
 # Contributing
-
-> TODO: Work with the Open Source Office to update the email alias below.
 
 Contributions are encouraged! If you submit an enhancement request, we'll invite you to contribute the change yourself. Please review our [Contributors Guide](CONTRIBUTING.md).
 
