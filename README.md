@@ -25,9 +25,9 @@ $ npm run build
 ```
 
 ## Usage
-Add **scripts** inside `dist` folder to your page.
+Add **scripts** inside the `dist` folder to your page.
 
-> If `dist` folder is not included, run `npm i && npm run build` to build it.
+> If the `dist` folder is not included, run `npm i && npm run build` to build it.
 
 ### Standard way
 ```javascript
@@ -36,7 +36,7 @@ nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player))
 ```
 
 ### VideoJS Plugin Ecosystem
-You can use built-in Videojs plugin system.
+You can use the built-in Videojs plugin system.
 
 ```javascript
 // var player = videojs('my-player')
