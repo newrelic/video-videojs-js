@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [0.5.0] - 2020/05/04
+### Fix
+- Update dependencies to fix multiple vulnerabilities.
+
 ## [0.4.0] - 2020/04/16
 ### Add
 - OS stuff.
