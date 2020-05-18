@@ -43,6 +43,44 @@ You can use the built-in Videojs plugin system.
 player.newrelic()
 ```
 
+## Custom Attributes
+You can add custom attributes in the following ways.  You can override OOTB attributes or create your own.
+
+Using the standard way
+```
+    const tracker = new nrvideo.VideojsTracker(player,{ customData: { 
+      contentTitle: "Override Existing Title",
+      customPlayerName: "myGreatPlayer", 
+      customPlayerVersion: "9.4.2"
+    } })
+    
+   nrvideo.Core.addTracker(tracker)
+   tracker.customData.myGreeting = "hello from vjs"
+``` 
+
+Using the plugin System
+```
+    var player = videojs('my-video')
+    const tracker = player.newrelic()
+    tracker.customData.myGreeting = "hello from vjs"
+```
+
+### Verify instrumentation
+
+On the page you've instrumented...
+
+&nbsp;&nbsp; Is Browser Agent loaded? → Type `newrelic` in the console.
+
+&nbsp;&nbsp; Is Video Script Loaded? → Type `nrvideo` in the console.
+
+&nbsp;&nbsp; Turn on debug → add `?nrvideo-debug=true` or `&nrvideo-debug=true` in the URL.
+
+&nbsp;&nbsp; Is Video Tracker correctly instantiated? → filter console by `[nrvideo]` and look for logs.
+
+&nbsp;&nbsp; Search for `Tracker` or `nrvideo`.
+
+&nbsp;&nbsp;&nbsp;&nbsp;<img width="200" alt="Console Search" src="https://user-images.githubusercontent.com/8813505/82217239-22172c00-98e8-11ea-9aa3-a9a675fd65a5.png">
+
 ### Examples
 
 Check out the `samples` folder for complete usage examples.
