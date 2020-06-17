@@ -69,7 +69,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   getPlayerVersion () {
-    return videojs.VERSION
+    return typeof videojs !== 'undefined' && videojs.VERSION
   }
 
   isMuted () {
