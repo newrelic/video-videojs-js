@@ -23,15 +23,15 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "newrelic-video-core": "github:newrelic/video-core-js#v0.13.0"
+    "newrelic-video-core": "github:newrelic/video-core-js"
   },
   "devDependencies": {
-    "aws-sdk": "^2.582.0",
+    "aws-sdk": "^2.920.0",
     "babel-core": "^6.26.3",
     "babel-loader": "^7.1.5",
     "babel-preset-env": "^1.7.0",
     "videojs-ima": "^0.6.0",
-    "webpack": "^4.43.0",
-    "webpack-cli": "^3.3.11"
+    "webpack": "^4.46.0",
+    "webpack-cli": "^3.3.12"
   }
 }
