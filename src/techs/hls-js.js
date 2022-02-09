@@ -1,6 +1,6 @@
 export default class HlsJs {
   constructor (tech) {
-    this.tech = tech.hls_
+    this.tech = tech.vhs_
   }
 
   getResource (tech) {
@@ -41,5 +41,5 @@ export default class HlsJs {
 }
 
 HlsJs.isUsing = function (tech) {
-  return !!tech.hls_
+  return !!tech.vhs_
 }

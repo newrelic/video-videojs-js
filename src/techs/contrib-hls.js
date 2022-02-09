@@ -1,6 +1,6 @@
 export default class ContribHlsTech {
   constructor (tech) {
-    this.tech = tech.hls
+    this.tech = tech.vhs
   }
 
   getRenditionName () {
@@ -41,5 +41,5 @@ export default class ContribHlsTech {
 }
 
 ContribHlsTech.isUsing = function (tech) {
-  return !!tech.hls
+  return !!tech.vhs
 }
