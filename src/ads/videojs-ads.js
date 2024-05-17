@@ -1,5 +1,5 @@
 import * as nrvideo from 'newrelic-video-core'
-import { version } from '../../package.json'
+import pkg from '../../package.json'
 
 export default class VideojsAdsTracker extends nrvideo.VideoTracker {
   getTrackerName () {
@@ -7,7 +7,7 @@ export default class VideojsAdsTracker extends nrvideo.VideoTracker {
   }
 
   getTrackerVersion () {
-    return version
+    return pkg.version
   }
 
   isMuted () {

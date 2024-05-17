@@ -1,5 +1,5 @@
 import * as nrvideo from 'newrelic-video-core'
-import {version} from '../package.json'
+import pkg from '../package.json'
 import ContribHlsTech from './techs/contrib-hls'
 import HlsJsTech from './techs/hls-js'
 import ShakaTech from './techs/shaka'
@@ -27,7 +27,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   getTrackerVersion () {
-    return version
+    return pkg.version
   }
 
   getPlayhead () {
