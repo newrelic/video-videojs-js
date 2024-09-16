@@ -58,7 +58,11 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
       return this.player.mediainfo.name // Brightcove
     }
   }
-
+  
+  getLanguage() {
+    return this.player && this.player.language ? this.player.language : null;
+  }
+  
   getSrc () {
     let tech = this.getTech()
     if (tech && tech.getSrc) {
