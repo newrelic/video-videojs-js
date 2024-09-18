@@ -3,16 +3,16 @@
 
 <head>
   <!-- Videojs -->
-  <link href="http://vjs.zencdn.net/5.14.1/video-js.css" rel="stylesheet">
-  <script src="http://vjs.zencdn.net/5.14.1/video.js"></script>
+  <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet">
+  <script src="https://vjs.zencdn.net/7.20.3/video.js"></script>
   <!-- ima -->
-  <script src="http://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+  <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
   <!-- contrib-ads -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/5.0.3/videojs.ads.min.css" rel="stylesheet" type="text/css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/5.0.3/videojs.ads.min.js"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.css" rel="stylesheet" type="text/css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.js"></script>
   <!-- videojs + ima -->
-  <link href="../node_modules/videojs-ima/src/videojs.ima.css" rel="stylesheet" type="text/css">
-  <script src="../node_modules/videojs-ima/src/videojs.ima.js"></script>
+  <link href="../node_modules/videojs-ima/dist/videojs.ima.css" rel="stylesheet" type="text/css">
+  <script src="../node_modules/videojs-ima/dist/videojs.ima.js"></script>
   <style>
     .vjs-ad-playing.vjs-ad-playing .vjs-control-bar {
         display: none;
@@ -25,8 +25,8 @@
 </head>
 
 <body>
-  <video id="myVideo" class="video-js vjs-default-skin" controls>
-    <source src="https://upload.wikimedia.org/wikipedia/commons/transcoded/c/c0/Big_Buck_Bunny_4K.webm/Big_Buck_Bunny_4K.webm.480p.webm">
+  <video id="myVideo" class="video-js vjs-default-skin" height="640px" width="480px" controls>
+    <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
   </video>
   <script>
     //PLAYER
