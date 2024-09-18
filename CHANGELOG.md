@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [0.7.0] - 2024/09/18
+### Add
+- Language attribute.
+### Update
+- Samples.
+
+## [0.6.0] - 2024/05/17
+### Update
+- Update configuration stuff.
+
 ## [0.5.0] - 2020/05/04
 ### Fix
 - Update dependencies to fix multiple vulnerabilities.
