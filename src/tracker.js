@@ -9,7 +9,6 @@ import BrightcoveImaAdsTracker from './ads/brightcove-ima'
 import FreewheelAdsTracker from './ads/freewheel'
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
-
   getTech () {
     let tech = this.player.tech({ IWillNotUseThisInPlugins: true })
     if (tech) {
@@ -59,11 +58,11 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
       return this.player.mediainfo.name // Brightcove
     }
   }
-  
+
   getLanguage() {
-    return this.player && this.player.language_ ? this.player.language_ : null;
+    return this.player?.language()
   }
-  
+
   getSrc () {
     let tech = this.getTech()
     if (tech && tech.getSrc) {
