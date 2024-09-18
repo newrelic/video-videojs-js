@@ -59,6 +59,10 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     }
   }
 
+  getLanguage() {
+    return this.player?.language()
+  }
+
   getSrc () {
     let tech = this.getTech()
     if (tech && tech.getSrc) {
