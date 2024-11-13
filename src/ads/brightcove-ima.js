@@ -15,7 +15,7 @@ export default class BrightcoveImaAdsTracker extends VideojsAdsTracker {
   }
 
   getPlayhead () {
-    return this.player.ima3.adPlayer.currentTime()
+    return this.player?.ima3?.adPlayer?.currentTime()
   }
 
   registerListeners () {
