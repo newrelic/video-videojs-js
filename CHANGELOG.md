@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [0.7.1] - 2014/11/13
+### Bug fix
+- Add aditional checks to `player`.
+
 ## [0.7.0] - 2024/09/18
 ### Add
 - Language attribute.
