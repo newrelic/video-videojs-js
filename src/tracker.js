@@ -1,12 +1,12 @@
-import * as nrvideo from "newrelic-video-core";
-import pkg from "../package.json";
-import ContribHlsTech from "./techs/contrib-hls";
-import HlsJsTech from "./techs/hls-js";
-import ShakaTech from "./techs/shaka";
-import VideojsAdsTracker from "./ads/videojs-ads";
-import ImaAdsTracker from "./ads/ima";
-import BrightcoveImaAdsTracker from "./ads/brightcove-ima";
-import FreewheelAdsTracker from "./ads/freewheel";
+import * as nrvideo from 'newrelic-video-core';
+import pkg from '../package.json';
+import ContribHlsTech from './techs/contrib-hls';
+import HlsJsTech from './techs/hls-js';
+import ShakaTech from './techs/shaka';
+import VideojsAdsTracker from './ads/videojs-ads';
+import ImaAdsTracker from './ads/ima';
+import BrightcoveImaAdsTracker from './ads/brightcove-ima';
+import FreewheelAdsTracker from './ads/freewheel';
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
   getTech() {
@@ -24,7 +24,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   getTrackerName() {
-    return "videojs";
+    return 'videojs';
   }
 
   getTrackerVersion() {
@@ -34,7 +34,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   getPlayhead() {
     if (
       this.player.ads &&
-      this.player.ads.state === "ads-playback" &&
+      this.player.ads.state === 'ads-playback' &&
       this.player.ads.snapshot &&
       this.player.ads.snapshot.currentTime
     ) {
@@ -49,7 +49,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   getDuration() {
     if (
       this.player.mediainfo &&
-      typeof this.player.mediainfo.duration !== "undefined"
+      typeof this.player.mediainfo.duration !== 'undefined'
     ) {
       return this.player.mediainfo.duration * 1000; // Brightcove
     } else {
@@ -79,11 +79,11 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   getPlayerName() {
-    return this.player?.name() || "videojs";
+    return this.player?.name() || 'videojs';
   }
 
   getPlayerVersion() {
-    return typeof videojs !== "undefined" && videojs.VERSION;
+    return typeof videojs !== 'undefined' && videojs.VERSION;
   }
 
   isMuted() {
@@ -144,47 +144,47 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
   registerListeners() {
     nrvideo.Log.debugCommonVideoEvents(this.player, [
-      "adstart",
-      "adend",
-      "adskip",
-      "adsready",
-      "adserror",
-      "dispose",
+      'adstart',
+      'adend',
+      'adskip',
+      'adsready',
+      'adserror',
+      'dispose',
     ]);
 
-    this.player.on("loadstart", this.onDownload.bind(this));
-    this.player.on("loadeddata", this.onDownload.bind(this));
-    this.player.on("loadedmetadata", this.onDownload.bind(this));
-    this.player.on("adsready", this.onAdsready.bind(this));
-    this.player.on("play", this.onPlay.bind(this));
-    this.player.on("pause", this.onPause.bind(this));
-    this.player.on("playing", this.onPlaying.bind(this));
-    this.player.on("abort", this.onAbort.bind(this));
-    this.player.on("ended", this.onEnded.bind(this));
-    this.player.on("dispose", this.onDispose.bind(this));
-    this.player.on("seeking", this.onSeeking.bind(this));
-    this.player.on("seeked", this.onSeeked.bind(this));
-    this.player.on("error", this.onError.bind(this));
-    this.player.on("waiting", this.onWaiting.bind(this));
-    this.player.on("timeupdate", this.onTimeupdate.bind(this));
+    this.player.on('loadstart', this.onDownload.bind(this));
+    this.player.on('loadeddata', this.onDownload.bind(this));
+    this.player.on('loadedmetadata', this.onDownload.bind(this));
+    this.player.on('adsready', this.onAdsready.bind(this));
+    this.player.on('play', this.onPlay.bind(this));
+    this.player.on('pause', this.onPause.bind(this));
+    this.player.on('playing', this.onPlaying.bind(this));
+    this.player.on('abort', this.onAbort.bind(this));
+    this.player.on('ended', this.onEnded.bind(this));
+    this.player.on('dispose', this.onDispose.bind(this));
+    this.player.on('seeking', this.onSeeking.bind(this));
+    this.player.on('seeked', this.onSeeked.bind(this));
+    this.player.on('error', this.onError.bind(this));
+    this.player.on('waiting', this.onWaiting.bind(this));
+    this.player.on('timeupdate', this.onTimeupdate.bind(this));
   }
 
   unregisterListeners() {
-    this.player.off("loadstart", this.onDownload);
-    this.player.off("loadeddata", this.onDownload);
-    this.player.off("loadedmetadata", this.onDownload);
-    this.player.off("adsready", this.onAdsready);
-    this.player.off("play", this.onPlay);
-    this.player.off("pause", this.onPause);
-    this.player.off("playing", this.onPlaying);
-    this.player.off("abort", this.onAbort);
-    this.player.off("ended", this.onEnded);
-    this.player.off("dispose", this.onDispose);
-    this.player.off("seeking", this.onSeeking);
-    this.player.off("seeked", this.onSeeked);
-    this.player.off("error", this.onError);
-    this.player.off("waiting", this.onWaiting);
-    this.player.off("timeupdate", this.onTimeupdate);
+    this.player.off('loadstart', this.onDownload);
+    this.player.off('loadeddata', this.onDownload);
+    this.player.off('loadedmetadata', this.onDownload);
+    this.player.off('adsready', this.onAdsready);
+    this.player.off('play', this.onPlay);
+    this.player.off('pause', this.onPause);
+    this.player.off('playing', this.onPlaying);
+    this.player.off('abort', this.onAbort);
+    this.player.off('ended', this.onEnded);
+    this.player.off('dispose', this.onDispose);
+    this.player.off('seeking', this.onSeeking);
+    this.player.off('seeked', this.onSeeked);
+    this.player.off('error', this.onError);
+    this.player.off('waiting', this.onWaiting);
+    this.player.off('timeupdate', this.onTimeupdate);
   }
 
   onDownload(e) {
