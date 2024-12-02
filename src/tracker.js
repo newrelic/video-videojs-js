@@ -27,6 +27,18 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     return 'videojs';
   }
 
+  getInstrumentationProvider() {
+    return 'New Relic';
+  }
+
+  getInstrumentationName() {
+    return this.getPlayerName();
+  }
+
+  getInstrumentationVersion() {
+    return this.getPlayerVersion();
+  }
+
   getTrackerVersion() {
     return pkg.version;
   }
