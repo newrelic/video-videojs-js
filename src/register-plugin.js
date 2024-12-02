@@ -1,6 +1,6 @@
 if (typeof videojs !== 'undefined') {
-// Cross-compatibility for Video.js 5 and 6.
-  const registerPlugin = videojs.registerPlugin || videojs.plugin
+  // Cross-compatibility for Video.js 5 and 6.
+  const registerPlugin = videojs.registerPlugin || videojs.plugin;
 
   /**
    * Register newrelic's video.js plugin.
@@ -12,9 +12,9 @@ if (typeof videojs !== 'undefined') {
    */
   registerPlugin('newrelic', function (options) {
     if (!this.newrelictracker) {
-      this.newrelictracker = new nrvideo.VideojsTracker(this)
-      nrvideo.Core.addTracker(this.newrelictracker)
+      this.newrelictracker = new nrvideo.VideojsTracker(this);
+      nrvideo.Core.addTracker(this.newrelictracker);
     }
-    return this.newrelictracker
-  })
+    return this.newrelictracker;
+  });
 }

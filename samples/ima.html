@@ -1,54 +1,71 @@
 <!DOCTYPE html>
 <html>
-
-<head>
-  <!-- Videojs -->
-  <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet">
-  <script src="https://vjs.zencdn.net/7.20.3/video.js"></script>
-  <!-- ima -->
-  <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
-  <!-- contrib-ads -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.css" rel="stylesheet" type="text/css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.js"></script>
-  <!-- videojs + ima -->
-  <link href="../node_modules/videojs-ima/dist/videojs.ima.css" rel="stylesheet" type="text/css">
-  <script src="../node_modules/videojs-ima/dist/videojs.ima.js"></script>
-  <style>
-    .vjs-ad-playing.vjs-ad-playing .vjs-control-bar {
+  <head>
+    <!-- Videojs -->
+    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/7.20.3/video.js"></script>
+    <!-- ima -->
+    <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+    <!-- contrib-ads -->
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.js"></script>
+    <!-- videojs + ima -->
+    <link
+      href="../node_modules/videojs-ima/dist/videojs.ima.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="../node_modules/videojs-ima/dist/videojs.ima.js"></script>
+    <style>
+      .vjs-ad-playing.vjs-ad-playing .vjs-control-bar {
         display: none;
-    }
+      }
     </style>
-  <!-- newrelic browser agent. REMEMBER TO REPLACE THIS SCRIPT WITH YOUR OWN BROWSER AGENT -->
-  <script type="text/javascript" src="agent.js"></script>
-  <!-- New Relic Tracker -->
-  <script src="../dist/newrelic-video-videojs.min.js"></script>
-</head>
+    <!-- newrelic browser agent. REMEMBER TO REPLACE THIS SCRIPT WITH YOUR OWN BROWSER AGENT -->
+    <script type="text/javascript" src="agent.js"></script>
+    <!-- New Relic Tracker -->
+    <script src="../dist/newrelic-video-videojs.min.js"></script>
+  </head>
 
-<body>
-  <video id="myVideo" class="video-js vjs-default-skin" height="640px" width="480px" controls>
-    <source src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4">
-  </video>
-  <script>
-    //PLAYER
-    var player = videojs('myVideo')
+  <body>
+    <video
+      id="myVideo"
+      class="video-js vjs-default-skin"
+      height="640px"
+      width="480px"
+      controls
+    >
+      <source
+        src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+      />
+    </video>
+    <script>
+      //PLAYER
+      var player = videojs('myVideo');
 
-    //NEWRELIC
-    nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player))
+      //NEWRELIC
+      nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player));
 
-    // IMA3
-    player.ima({
-      id: 'myVideo',
-      adTagUrl: 'http://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/ad_rule_samples&ciu_szs=300x250&ad_rule=1&impl=s&gdfp_req=1&env=vp&output=xml_vmap1&unviewed_position_start=1&cust_params=sample_ar%3Dpremidpostpod%26deployment%3Dgmf-js&cmsid=496&vid=short_onecue&correlator='
-    }, player.ima.start)
+      // IMA3
+      player.ima(
+        {
+          id: 'myVideo',
+          adTagUrl:
+            'http://pubads.g.doubleclick.net/gampad/ads?sz=640x480&iu=/124319096/external/ad_rule_samples&ciu_szs=300x250&ad_rule=1&impl=s&gdfp_req=1&env=vp&output=xml_vmap1&unviewed_position_start=1&cust_params=sample_ar%3Dpremidpostpod%26deployment%3Dgmf-js&cmsid=496&vid=short_onecue&correlator=',
+        },
+        player.ima.start
+      );
 
-    player.one('click', function () {
-      player.play()
-    })
+      player.one('click', function () {
+        player.play();
+      });
 
-    player.ima.initializeAdDisplayContainer()
-    player.ima.requestAds()
-
-  </script>
-</body>
-
+      player.ima.initializeAdDisplayContainer();
+      player.ima.requestAds();
+    </script>
+  </body>
 </html>
