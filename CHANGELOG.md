@@ -2,7 +2,7 @@
 
 ## [0.7.1] - 2014/11/13
 ### Bug fix
-- Add aditional checks to `player`.
+- Added Null Handler in the `Tracker`.
 
 ## [0.7.0] - 2024/09/18
 ### Add
