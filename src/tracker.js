@@ -256,8 +256,11 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   onError() {
+    const error = this.player.error();
+    const errorCode = error.code;
+    const errorName = error.name;
     if (this.player.error && this.player.error()) {
-      this.sendError(this.player.error());
+      this.sendError({ error, errorCode, errorName });
     }
   }
 
