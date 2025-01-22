@@ -23,7 +23,7 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "newrelic-video-core": "github:newrelic/video-core-js"
+    "newrelic-video-core": "github:newrelic/video-core-js#develop"
   },
   "devDependencies": {
     "@babel/core": "^7.24.5",
