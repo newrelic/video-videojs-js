@@ -1,64 +1,80 @@
 <!DOCTYPE html>
 <html>
+  <head>
+    <!-- Videojs -->
+    <link href="http://vjs.zencdn.net/5.14.1/video-js.css" rel="stylesheet" />
+    <script src="http://vjs.zencdn.net/5.14.1/video.js"></script>
+    <!-- fw -->
+    <link
+      href="https://players.brightcove.net/videojs-freewheel/2/videojs-freewheel.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <script src="https://players.brightcove.net/videojs-freewheel/2/videojs-freewheel.min.js"></script>
+    <!-- newrelic browser agent. REMEMBER TO REPLACE THIS SCRIPT WITH YOUR OWN BROWSER AGENT -->
+    <script type="text/javascript" src="agent.js"></script>
+    <!-- New Relic Tracker -->
+    <script src="../dist/newrelic-video-videojs.min.js"></script>
+  </head>
 
-<head>
-  <!-- Videojs -->
-  <link href="http://vjs.zencdn.net/5.14.1/video-js.css" rel="stylesheet">
-  <script src="http://vjs.zencdn.net/5.14.1/video.js"></script>
-  <!-- fw -->
-  <link href="https://players.brightcove.net/videojs-freewheel/2/videojs-freewheel.min.css" rel="stylesheet" type="text/css">
-  <script src="https://players.brightcove.net/videojs-freewheel/2/videojs-freewheel.min.js"></script>
-  <!-- newrelic browser agent. REMEMBER TO REPLACE THIS SCRIPT WITH YOUR OWN BROWSER AGENT -->
-  <script type="text/javascript" src="agent.js"></script>
-  <!-- New Relic Tracker -->
-  <script src="../dist/newrelic-video-videojs.min.js"></script>
-</head>
+  <body>
+    <video id="myVideo" class="video-js vjs-default-skin" controls>
+      <source
+        src="https://dl6.webmfiles.org/big-buck-bunny_trailer.webm"
+        type="video/mp4"
+      />
+    </video>
+    <script>
+      //PLAYER
+      var player = videojs('myVideo');
 
-<body>
-  <video id="myVideo" class="video-js vjs-default-skin" controls>
-    <source src="https://dl6.webmfiles.org/big-buck-bunny_trailer.webm"type='video/mp4'>
-  </video>
-  <script>
-    //PLAYER
-    var player = videojs('myVideo')
-    player.ready(function() {
-      // initialize the Freewheel plugin
-      player.FreeWheelPlugin({
-        adTechOrder: ["html5"],
-        Html5: {
-          keyValues: [{
-            feature: "simpleAds",
-            module: "DemoPlayer"
-          }, {
-            feature: "trackingURLs"
-          }],
-          networkId: 96749,
-          profile: "global-js",
-          sdkurl: "http://adm.fwmrm.net/p/release/latest-JS/adm/prd/AdManager.js",
-          serverUrl: "http://cue.v.fwmrm.net/ad/g/1",
-          siteSectionCustomId: "DemoSiteGroup.01",
-          temporalSlots: [{
-            adUnit: "preroll",
-            id: "Preroll_1",
-            timePosition: 0
-          }, {
-            adUnit: "postroll",
-            id: "Postroll_1",
-            timePosition: 60
-          }, {
-            adUnit: "midroll",
-            id: "Midroll_1",
-            timePosition: 5
-          }],
-          videoAssetCustomId: "DemoVideoGroup.01",
-          videoAssetDuration: 500
-        },
+      player.ready(function () {
+        // initialize the Freewheel plugin
+        player.FreeWheelPlugin({
+          adTechOrder: ['html5'],
+          Html5: {
+            keyValues: [
+              {
+                feature: 'simpleAds',
+                module: 'DemoPlayer',
+              },
+              {
+                feature: 'trackingURLs',
+              },
+            ],
+            networkId: 96749,
+            profile: 'global-js',
+            sdkurl:
+              'http://adm.fwmrm.net/p/release/latest-JS/adm/prd/AdManager.js',
+            serverUrl: 'http://cue.v.fwmrm.net/ad/g/1',
+            siteSectionCustomId: 'DemoSiteGroup.01',
+            temporalSlots: [
+              {
+                adUnit: 'preroll',
+                id: 'Preroll_1',
+                timePosition: 0,
+              },
+              {
+                adUnit: 'postroll',
+                id: 'Postroll_1',
+                timePosition: 60,
+              },
+              {
+                adUnit: 'midroll',
+                id: 'Midroll_1',
+                timePosition: 5,
+              },
+            ],
+            videoAssetCustomId: 'DemoVideoGroup.01',
+            videoAssetDuration: 500,
+          },
+        });
       });
-    })
 
-    //NEWRELIC
-    nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player))
-  </script>
-</body>
-
+      //NEWRELIC
+      const tracker = new nrvideo.VideojsTracker(player);
+      tracker.setUserId('nr-user-4');
+      nrvideo.Core.addTracker(tracker);
+    </script>
+  </body>
 </html>

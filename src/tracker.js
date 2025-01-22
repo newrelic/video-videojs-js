@@ -179,6 +179,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.on('error', this.onError.bind(this));
     this.player.on('waiting', this.onWaiting.bind(this));
     this.player.on('timeupdate', this.onTimeupdate.bind(this));
+    this.player.on('adserror', this.onError.bind(this));
   }
 
   unregisterListeners() {
@@ -257,7 +258,8 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
   onError() {
     if (this.player.error && this.player.error()) {
-      this.sendError(this.player.error());
+      const { code, message } = this.player.error();
+      this.sendError({ errorCode: code, errorName: message });
     }
   }
 

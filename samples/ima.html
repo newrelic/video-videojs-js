@@ -47,8 +47,11 @@
       //PLAYER
       var player = videojs('myVideo');
 
+      const tracker = new nrvideo.VideojsTracker(player);
+      tracker.setUserId('nr-user-2');
+
       //NEWRELIC
-      nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player));
+      nrvideo.Core.addTracker(tracker);
 
       // IMA3
       player.ima(

@@ -26,7 +26,9 @@
     </video>
     <script>
       var player = videojs('my-video');
-      nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player));
+      const tracker = new nrvideo.VideojsTracker(player);
+      tracker.setUserId('nr-user-3');
+      nrvideo.Core.addTracker(tracker);
     </script>
   </body>
 </html>
