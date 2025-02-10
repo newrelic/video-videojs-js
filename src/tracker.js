@@ -9,6 +9,15 @@ import BrightcoveImaAdsTracker from './ads/brightcove-ima';
 import FreewheelAdsTracker from './ads/freewheel';
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
+  constructor(player) {
+    super(player);
+    this.preRollCompleted = false;
+    this.midRollCompleted = false;
+    this.postRollCompleted = false;
+    this.imAdsCompleted = false;
+    this.imaAdCuePoints = '';
+    this.FreewheelAdsCompleted = false;
+  }
   getTech() {
     let tech = this.player.tech({ IWillNotUseThisInPlugins: true });
 
@@ -54,6 +63,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     } else if (this.player.absoluteTime) {
       return this.player.absoluteTime() * 1000;
     } else {
+      // console.log('playhead tracker', this.player.currentTime());
       return this.player.currentTime() * 1000;
     }
   }
@@ -168,6 +178,8 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.on('loadeddata', this.onDownload.bind(this));
     this.player.on('loadedmetadata', this.onDownload.bind(this));
     this.player.on('adsready', this.onAdsready.bind(this));
+    this.player.on('adstart', this.onAdStart.bind(this));
+    this.player.on('adend', this.onAdEnd.bind(this));
     this.player.on('play', this.onPlay.bind(this));
     this.player.on('pause', this.onPause.bind(this));
     this.player.on('playing', this.onPlaying.bind(this));
@@ -179,6 +191,10 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.on('error', this.onError.bind(this));
     this.player.on('waiting', this.onWaiting.bind(this));
     this.player.on('timeupdate', this.onTimeupdate.bind(this));
+    this.player.on(
+      'ads-allpods-completed',
+      this.OnAdsAllpodsCompleted.bind(this)
+    );
   }
 
   unregisterListeners() {
@@ -186,6 +202,8 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.off('loadeddata', this.onDownload);
     this.player.off('loadedmetadata', this.onDownload);
     this.player.off('adsready', this.onAdsready);
+    this.player.off('adstart', this.onAdStart);
+    this.player.off('adend', this.onAdEnd);
     this.player.off('play', this.onPlay);
     this.player.off('pause', this.onPause);
     this.player.off('playing', this.onPlaying);
@@ -197,6 +215,10 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.off('error', this.onError);
     this.player.off('waiting', this.onWaiting);
     this.player.off('timeupdate', this.onTimeupdate);
+    this.player.off(
+      'ads-allpods-completed',
+      this.OnAdsAllpodsCompleted.bind(this)
+    );
   }
 
   onDownload(e) {
@@ -213,6 +235,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         this.setAdsTracker(new ImaAdsTracker(this.player));
       } else if (FreewheelAdsTracker.isUsing(this.player)) {
         // FW
+
         this.setAdsTracker(new FreewheelAdsTracker(this.player));
         // } else if (OnceAdsTracker.isUsing(this)) { // Once
       } else {
@@ -220,6 +243,51 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         this.setAdsTracker(new VideojsAdsTracker(this.player));
       }
     }
+  }
+
+  onAdStart() {
+    this.currentAdPlaying = true;
+
+    /* get the array with all the cue points which will be played */
+    if (!this.imaAdCuePoints) {
+      this.imaAdCuePoints = this.player?.ima?.getAdsManager().getCuePoints();
+    }
+  }
+  onAdEnd() {
+    this.currentAdPlaying = false;
+    const currentTime = this.player.currentTime();
+    const totalDuration = this.getDuration() / 1000;
+
+    if (currentTime < 5) {
+      this.preRollCompleted = true;
+    } else if (currentTime > totalDuration - 5) {
+      this.midRollCompleted = true;
+    } else {
+      this.postRollCompleted = true;
+    }
+
+    this.checkAllAdsCompleted();
+  }
+
+  checkAllAdsCompleted() {
+    if (
+      this.preRollCompleted &&
+      this.midRollCompleted &&
+      this.postRollCompleted
+    ) {
+      if (!this.imAdsCompleted) {
+        this.imAdsCompleted = true;
+      }
+    }
+
+    if (this.imaAdCuePoints && !this.imaAdCuePoints.includes(-1)) {
+      this.imAdsCompleted = true;
+    }
+  }
+
+  OnAdsAllpodsCompleted() {
+    this.onEnded.bind(this);
+    this.FreewheelAdsCompleted = true;
   }
 
   onPlay() {
@@ -240,7 +308,15 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   onEnded() {
-    this.sendEnd();
+    if (this.adsTracker) {
+      if (this.imAdsCompleted) {
+        this.sendEnd();
+      } else if (this.FreewheelAdsCompleted) {
+        this.sendEnd();
+      }
+    } else {
+      this.sendEnd();
+    }
   }
 
   onDispose() {
