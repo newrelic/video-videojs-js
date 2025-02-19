@@ -63,7 +63,6 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     } else if (this.player.absoluteTime) {
       return this.player.absoluteTime() * 1000;
     } else {
-      // console.log('playhead tracker', this.player.currentTime());
       return this.player.currentTime() * 1000;
     }
   }
@@ -134,6 +133,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
   getRenditionHeight() {
     let tech = this.getTech();
+
     if (tech && tech.getRenditionHeight) {
       return tech.getRenditionHeight();
     }
