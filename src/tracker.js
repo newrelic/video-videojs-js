@@ -11,13 +11,10 @@ import FreewheelAdsTracker from './ads/freewheel';
 export default class VideojsTracker extends nrvideo.VideoTracker {
   constructor(player) {
     super(player);
-    this.preRollCompleted = false;
-    this.midRollCompleted = false;
-    this.postRollCompleted = false;
-    this.imAdsCompleted = false;
+    this.isContentEnd = false;
     this.imaAdCuePoints = '';
-    this.FreewheelAdsCompleted = false;
   }
+
   getTech() {
     let tech = this.player.tech({ IWillNotUseThisInPlugins: true });
 
@@ -254,34 +251,8 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     }
   }
   onAdEnd() {
-    this.currentAdPlaying = false;
-    const currentTime = this.player.currentTime();
-    const totalDuration = this.getDuration() / 1000;
-
-    if (currentTime < 5) {
-      this.preRollCompleted = true;
-    } else if (currentTime > totalDuration - 5) {
-      this.midRollCompleted = true;
-    } else {
-      this.postRollCompleted = true;
-    }
-
-    this.checkAllAdsCompleted();
-  }
-
-  checkAllAdsCompleted() {
-    if (
-      this.preRollCompleted &&
-      this.midRollCompleted &&
-      this.postRollCompleted
-    ) {
-      if (!this.imAdsCompleted) {
-        this.imAdsCompleted = true;
-      }
-    }
-
-    if (this.imaAdCuePoints && !this.imaAdCuePoints.includes(-1)) {
-      this.imAdsCompleted = true;
+    if (this.isContentEnd) {
+      this.sendEnd();
     }
   }
 
@@ -309,9 +280,8 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
   onEnded() {
     if (this.adsTracker) {
-      if (this.imAdsCompleted) {
-        this.sendEnd();
-      } else if (this.FreewheelAdsCompleted) {
+      this.isContentEnd = true;
+      if (this.imaAdCuePoints && !this.imaAdCuePoints.includes(-1)) {
         this.sendEnd();
       }
     } else {
