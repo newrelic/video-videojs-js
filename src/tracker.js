@@ -9,6 +9,12 @@ import BrightcoveImaAdsTracker from './ads/brightcove-ima';
 import FreewheelAdsTracker from './ads/freewheel';
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
+  constructor(player) {
+    super(player);
+    this.isContentEnd = false;
+    this.imaAdCuePoints = '';
+  }
+
   getTech() {
     let tech = this.player.tech({ IWillNotUseThisInPlugins: true });
 
@@ -124,6 +130,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
   getRenditionHeight() {
     let tech = this.getTech();
+
     if (tech && tech.getRenditionHeight) {
       return tech.getRenditionHeight();
     }
@@ -168,6 +175,8 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.on('loadeddata', this.onDownload.bind(this));
     this.player.on('loadedmetadata', this.onDownload.bind(this));
     this.player.on('adsready', this.onAdsready.bind(this));
+    this.player.on('adstart', this.onAdStart.bind(this));
+    this.player.on('adend', this.onAdEnd.bind(this));
     this.player.on('play', this.onPlay.bind(this));
     this.player.on('pause', this.onPause.bind(this));
     this.player.on('playing', this.onPlaying.bind(this));
@@ -179,6 +188,10 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.on('error', this.onError.bind(this));
     this.player.on('waiting', this.onWaiting.bind(this));
     this.player.on('timeupdate', this.onTimeupdate.bind(this));
+    this.player.on(
+      'ads-allpods-completed',
+      this.OnAdsAllpodsCompleted.bind(this)
+    );
   }
 
   unregisterListeners() {
@@ -186,6 +199,8 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.off('loadeddata', this.onDownload);
     this.player.off('loadedmetadata', this.onDownload);
     this.player.off('adsready', this.onAdsready);
+    this.player.off('adstart', this.onAdStart);
+    this.player.off('adend', this.onAdEnd);
     this.player.off('play', this.onPlay);
     this.player.off('pause', this.onPause);
     this.player.off('playing', this.onPlaying);
@@ -197,6 +212,10 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.off('error', this.onError);
     this.player.off('waiting', this.onWaiting);
     this.player.off('timeupdate', this.onTimeupdate);
+    this.player.off(
+      'ads-allpods-completed',
+      this.OnAdsAllpodsCompleted.bind(this)
+    );
   }
 
   onDownload(e) {
@@ -213,6 +232,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         this.setAdsTracker(new ImaAdsTracker(this.player));
       } else if (FreewheelAdsTracker.isUsing(this.player)) {
         // FW
+
         this.setAdsTracker(new FreewheelAdsTracker(this.player));
         // } else if (OnceAdsTracker.isUsing(this)) { // Once
       } else {
@@ -220,6 +240,25 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         this.setAdsTracker(new VideojsAdsTracker(this.player));
       }
     }
+  }
+
+  onAdStart() {
+    this.currentAdPlaying = true;
+
+    /* get the array with all the cue points which will be played */
+    if (!this.imaAdCuePoints) {
+      this.imaAdCuePoints = this.player?.ima?.getAdsManager().getCuePoints();
+    }
+  }
+  onAdEnd() {
+    if (this.isContentEnd) {
+      this.sendEnd();
+    }
+  }
+
+  OnAdsAllpodsCompleted() {
+    this.onEnded.bind(this);
+    this.FreewheelAdsCompleted = true;
   }
 
   onPlay() {
@@ -240,7 +279,14 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   onEnded() {
-    this.sendEnd();
+    if (this.adsTracker) {
+      this.isContentEnd = true;
+      if (this.imaAdCuePoints && !this.imaAdCuePoints.includes(-1)) {
+        this.sendEnd();
+      }
+    } else {
+      this.sendEnd();
+    }
   }
 
   onDispose() {

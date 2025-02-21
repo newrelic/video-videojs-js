@@ -21,6 +21,25 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
     );
   }
 
+  getCuePoints() {
+    return this.player.ima.getAdsManager().getCuePoints();
+  }
+
+  getAdPosition() {
+    const podInfoData = player.ima
+      ?.getAdsManager()
+      ?.getCurrentAd()
+      ?.getAdPodInfo()?.data?.podIndex;
+
+    if (podInfoData === 0) {
+      return 'pre';
+    } else if (podInfoData === -1) {
+      return 'post';
+    } else {
+      return 'mid';
+    }
+  }
+
   getDuration() {
     try {
       return (
@@ -113,10 +132,7 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
 
     // Register listeners
     this.player.ima.addEventListener(e.LOADED, this.onLoaded.bind(this));
-    this.player.ima.addEventListener(
-      e.IMPRESSION,
-      this.onImpression.bind(this)
-    );
+    this.player.ima.addEventListener(e.STARTED, this.onStart.bind(this));
     this.player.ima.addEventListener(e.PAUSED, this.onPaused.bind(this));
     this.player.ima.addEventListener(e.RESUMED, this.onResumed.bind(this));
     this.player.ima.addEventListener(e.COMPLETE, this.onComplete.bind(this));
@@ -132,7 +148,6 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
       this.onThirdQuartile.bind(this)
     );
     this.player.ima.addEventListener(AD_ERROR, this.onError.bind(this));
-    this.player.on('adend', this.onAdend.bind(this));
   }
 
   unregisterListeners() {
@@ -142,6 +157,7 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
 
     // unregister listeners
     this.player.ima.removeEventListener(e.LOADED, this.onLoaded);
+    this.player.ima.removeEventListener(e.STARTED, this.onLoaded.bind(this));
     this.player.ima.removeEventListener(e.IMPRESSION, this.onImpression);
     this.player.ima.removeEventListener(e.PAUSED, this.onPaused);
     this.player.ima.removeEventListener(e.RESUMED, this.onResumed);
@@ -152,22 +168,17 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
     this.player.ima.removeEventListener(e.MIDPOINT, this.onMidpoint);
     this.player.ima.removeEventListener(e.THIRD_QUARTILE, this.onThirdQuartile);
     this.player.ima.removeEventListener(AD_ERROR, this.onError);
-    this.player.off('adend', this.onAdend);
   }
 
   onLoaded(e) {
     this.sendRequest();
   }
 
-  onImpression(e) {
+  onStart(e) {
     this.sendStart();
   }
 
   onComplete(e) {
-    this.sendEnd();
-  }
-
-  onAdend(e) {
     this.sendEnd();
   }
 
