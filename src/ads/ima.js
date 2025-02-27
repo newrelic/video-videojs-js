@@ -1,73 +1,106 @@
 /* global google */
-import * as nrvideo from 'newrelic-video-core'
-import VideojsAdsTracker from './videojs-ads'
+import * as nrvideo from 'newrelic-video-core';
+import VideojsAdsTracker from './videojs-ads';
 
 export default class ImaAdsTracker extends VideojsAdsTracker {
-  static isUsing (player) {
-    return player.ima && typeof google !== 'undefined'
+  static isUsing(player) {
+    return player.ima && typeof google !== 'undefined';
   }
 
-  getTrackerName () {
-    return 'ima-ads'
+  getTrackerName() {
+    return 'ima-ads';
   }
 
-  getPlayerName () {
-    return 'ima'
+  getPlayerName() {
+    return 'ima';
   }
 
-  getPlayerVersion () {
-    return 'ima: ' + google.ima.VERSION + '; contrib-ads: ' + this.player.ads.VERSION
+  getPlayerVersion() {
+    return (
+      'ima: ' + google.ima.VERSION + '; contrib-ads: ' + this.player.ads.VERSION
+    );
   }
 
-  getDuration () {
-    try {
-      return this.player.ima.getAdsManager().getCurrentAd().getDuration() * 1000
-    } catch (err) { /* do nothing */ }
+  getCuePoints() {
+    return this.player.ima.getAdsManager().getCuePoints();
   }
 
-  getVideoId () {
-    try {
-      return this.player.ima.getAdsManager().getCurrentAd().getAdId()
-    } catch (err) { /* do nothing */ }
-  }
+  getAdPosition() {
+    const podInfoData = player.ima
+      ?.getAdsManager()
+      ?.getCurrentAd()
+      ?.getAdPodInfo()?.data?.podIndex;
 
-  getAdCreativeId () {
-    try {
-      return this.player.ima.getAdsManager().getCurrentAd().getCreativeId()
-    } catch (err) { /* do nothing */ }
-  }
-
-  getSrc () {
-    try {
-      return this.player.ima.getAdsManager().getCurrentAd().getMediaUrl()
-    } catch (err) { /* do nothing */ }
-  }
-
-  getTitle () {
-    try {
-      return this.player.ima.getAdsManager().getCurrentAd().getTitle()
-    } catch (err) { /* do nothing */ }
-  }
-
-  getPlayhead () {
-    let manager = this.player.ima.getAdsManager()
-    if (manager) {
-      return (this.getDuration() - manager.getRemainingTime()) * 1000
+    if (podInfoData === 0) {
+      return 'pre';
+    } else if (podInfoData === -1) {
+      return 'post';
+    } else {
+      return 'mid';
     }
   }
 
-  getPlayrate () {
-    return this.player.playbackRate()
+  getDuration() {
+    try {
+      return (
+        this.player.ima.getAdsManager().getCurrentAd().getDuration() * 1000
+      );
+    } catch (err) {
+      /* do nothing */
+    }
   }
 
-  getAdPartner () {
-    return 'ima'
+  getVideoId() {
+    try {
+      return this.player.ima.getAdsManager().getCurrentAd().getAdId();
+    } catch (err) {
+      /* do nothing */
+    }
   }
 
-  registerListeners () {
+  getAdCreativeId() {
+    try {
+      return this.player.ima.getAdsManager().getCurrentAd().getCreativeId();
+    } catch (err) {
+      /* do nothing */
+    }
+  }
+
+  getSrc() {
+    try {
+      return this.player.ima.getAdsManager().getCurrentAd().getMediaUrl();
+    } catch (err) {
+      /* do nothing */
+    }
+  }
+
+  getTitle() {
+    try {
+      return this.player.ima.getAdsManager().getCurrentAd().getTitle();
+    } catch (err) {
+      /* do nothing */
+    }
+  }
+
+  getPlayhead() {
+    let manager = this.player.ima.getAdsManager();
+    if (manager) {
+      return (this.getDuration() - manager.getRemainingTime()) * 1000;
+    }
+  }
+
+  getPlayrate() {
+    return this.player.playbackRate();
+  }
+
+  getAdPartner() {
+    return 'ima';
+  }
+
+  registerListeners() {
     // Shortcut events
-    let e = google.ima.AdEvent.Type
-    let AD_ERROR = google.ima.AdErrorEvent.Type.AD_ERROR
+    let e = google.ima.AdEvent.Type;
+    let AD_ERROR = google.ima.AdErrorEvent.Type.AD_ERROR;
 
     // debug
     nrvideo.Log.debugCommonVideoEvents(this.player.ima.addEventListener, [
@@ -94,89 +127,95 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
       e.FIRST_QUARTILE,
       e.MIDPOINT,
       e.THIRD_QUARTILE,
-      AD_ERROR
-    ])
+      AD_ERROR,
+    ]);
 
     // Register listeners
-    this.player.ima.addEventListener(e.LOADED, this.onLoaded.bind(this))
-    this.player.ima.addEventListener(e.IMPRESSION, this.onImpression.bind(this))
-    this.player.ima.addEventListener(e.PAUSED, this.onPaused.bind(this))
-    this.player.ima.addEventListener(e.RESUMED, this.onResumed.bind(this))
-    this.player.ima.addEventListener(e.COMPLETE, this.onComplete.bind(this))
-    this.player.ima.addEventListener(e.SKIPPED, this.onSkipped.bind(this))
-    this.player.ima.addEventListener(e.CLICK, this.onClick.bind(this))
-    this.player.ima.addEventListener(e.FIRST_QUARTILE, this.onFirstQuartile.bind(this))
-    this.player.ima.addEventListener(e.MIDPOINT, this.onMidpoint.bind(this))
-    this.player.ima.addEventListener(e.THIRD_QUARTILE, this.onThirdQuartile.bind(this))
-    this.player.ima.addEventListener(AD_ERROR, this.onError.bind(this))
-    this.player.on('adend', this.onAdend.bind(this))
+    this.player.ima.addEventListener(e.LOADED, this.onLoaded.bind(this));
+    this.player.ima.addEventListener(e.STARTED, this.onStart.bind(this));
+    this.player.ima.addEventListener(e.PAUSED, this.onPaused.bind(this));
+    this.player.ima.addEventListener(e.RESUMED, this.onResumed.bind(this));
+    this.player.ima.addEventListener(e.COMPLETE, this.onComplete.bind(this));
+    this.player.ima.addEventListener(e.SKIPPED, this.onSkipped.bind(this));
+    this.player.ima.addEventListener(e.CLICK, this.onClick.bind(this));
+    this.player.ima.addEventListener(
+      e.FIRST_QUARTILE,
+      this.onFirstQuartile.bind(this)
+    );
+    this.player.ima.addEventListener(e.MIDPOINT, this.onMidpoint.bind(this));
+    this.player.ima.addEventListener(
+      e.THIRD_QUARTILE,
+      this.onThirdQuartile.bind(this)
+    );
+    this.player.ima.addEventListener(AD_ERROR, this.onError.bind(this));
   }
 
-  unregisterListeners () {
+  unregisterListeners() {
     // Shortcut events
-    let e = google.ima.AdEvent.Type
-    let AD_ERROR = google.ima.AdErrorEvent.Type.AD_ERROR
+    let e = google.ima.AdEvent.Type;
+    let AD_ERROR = google.ima.AdErrorEvent.Type.AD_ERROR;
 
     // unregister listeners
-    this.player.ima.removeEventListener(e.LOADED, this.onLoaded)
-    this.player.ima.removeEventListener(e.IMPRESSION, this.onImpression)
-    this.player.ima.removeEventListener(e.PAUSED, this.onPaused)
-    this.player.ima.removeEventListener(e.RESUMED, this.onResumed)
-    this.player.ima.removeEventListener(e.COMPLETE, this.onComplete)
-    this.player.ima.removeEventListener(e.SKIPPED, this.onSkipped)
-    this.player.ima.removeEventListener(e.CLICK, this.onClick)
-    this.player.ima.removeEventListener(e.FIRST_QUARTILE, this.onFirstQuartile)
-    this.player.ima.removeEventListener(e.MIDPOINT, this.onMidpoint)
-    this.player.ima.removeEventListener(e.THIRD_QUARTILE, this.onThirdQuartile)
-    this.player.ima.removeEventListener(AD_ERROR, this.onError)
-    this.player.off('adend', this.onAdend)
+    this.player.ima.removeEventListener(e.LOADED, this.onLoaded);
+    this.player.ima.removeEventListener(e.STARTED, this.onLoaded.bind(this));
+    this.player.ima.removeEventListener(e.IMPRESSION, this.onImpression);
+    this.player.ima.removeEventListener(e.PAUSED, this.onPaused);
+    this.player.ima.removeEventListener(e.RESUMED, this.onResumed);
+    this.player.ima.removeEventListener(e.COMPLETE, this.onComplete);
+    this.player.ima.removeEventListener(e.SKIPPED, this.onSkipped);
+    this.player.ima.removeEventListener(e.CLICK, this.onClick);
+    this.player.ima.removeEventListener(e.FIRST_QUARTILE, this.onFirstQuartile);
+    this.player.ima.removeEventListener(e.MIDPOINT, this.onMidpoint);
+    this.player.ima.removeEventListener(e.THIRD_QUARTILE, this.onThirdQuartile);
+    this.player.ima.removeEventListener(AD_ERROR, this.onError);
   }
 
-  onLoaded (e) {
-    this.sendRequest()
+  onLoaded(e) {
+    this.sendRequest();
   }
 
-  onImpression (e) {
-    this.sendStart()
+  onStart(e) {
+    this.sendStart();
   }
 
-  onComplete (e) {
-    this.sendEnd()
+  onComplete(e) {
+    this.sendEnd();
   }
 
-  onAdend (e) {
-    this.sendEnd()
+  onSkipped(e) {
+    this.sendEnd({ skipped: true });
   }
 
-  onSkipped (e) {
-    this.sendEnd({ skipped: true })
+  onError(e) {
+    const adError = e.getError();
+
+    // Optional: Extract detailed error information
+    const errorCode = adError.getErrorCode();
+    const errorName = adError.getMessage();
+    this.sendError({ adError, errorCode, errorName });
   }
 
-  onError (e) {
-    this.sendError(e.getError())
+  onClick(e) {
+    this.sendAdClick();
   }
 
-  onClick (e) {
-    this.sendAdClick()
+  onFirstQuartile() {
+    this.sendAdQuartile({ adQuartile: 1 });
   }
 
-  onFirstQuartile () {
-    this.sendAdQuartile({ quartile: 1 })
+  onMidpoint() {
+    this.sendAdQuartile({ adQuartile: 2 });
   }
 
-  onMidpoint () {
-    this.sendAdQuartile({ quartile: 2 })
+  onThirdQuartile() {
+    this.sendAdQuartile({ adQuartile: 3 });
   }
 
-  onThirdQuartile () {
-    this.sendAdQuartile({ quartile: 3 })
+  onPaused() {
+    this.sendPause();
   }
 
-  onPaused () {
-    this.sendPause()
-  }
-
-  onResumed () {
-    this.sendResume()
+  onResumed() {
+    this.sendResume();
   }
 }

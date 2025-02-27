@@ -1,13 +1,13 @@
 {
   "name": "newrelic-video-videojs",
-  "version": "0.7.1",
+  "version": "3.0.0",
   "description": "New relic tracker for Videojs",
   "main": "src/index.js",
   "scripts": {
     "build": "webpack --mode production",
     "build:dev": "webpack --mode development",
     "watch": "webpack --mode production --progress --color --watch",
-    "watch:dev": "webpack --progress --color --watch",
+    "watch:dev": "webpack --progress --color --watch --mode development",
     "prezip": "npm run build",
     "zip": "zip -P newrelic -x '*.DS_Store' -x 'samples/agent.js' -r videojs.zip dist samples README.md CHANGELOG.md EULA.md",
     "clean": "rm -rf dist *.zip",
@@ -23,7 +23,7 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "newrelic-video-core": "github:newrelic/video-core-js"
+    "newrelic-video-core": "github:newrelic/video-core-js#stable"
   },
   "devDependencies": {
     "@babel/core": "^7.24.5",

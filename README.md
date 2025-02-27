@@ -1,112 +1,86 @@
-[![Community Project header](https://github.com/newrelic/open-source-office/raw/master/examples/categories/images/Community_Project.png)](https://github.com/newrelic/open-source-office/blob/master/examples/categories/index.md#community-project)
+[![Community Project header](https://github.com/newrelic/opensource-website/raw/master/src/images/categories/Community_Project.png)](https://opensource.newrelic.com/oss-category/#community-project)
 
-# New Relic VideoJS Tracker
+# New Relic Videojs Tracker Agent
 
-The New Relic VideoJS tracker instruments the VideoJS player and Brightcove player. It also instruments Ads for FreeWheel and IMA. Makes use of [newrelic-video-core](https://github.com/newrelic/video-core-js), extending the `VideoTracker` class.
+The New Relic Videojs Tracker enhances your media applications by tracking video events, playback errors, and other activities, providing comprehensive insights into performance and user interactions.
 
-## Build
+- The Videojs tracker is available as a ready-to-use JavaScript snippet for easy copy-paste integration.
+- New Relic Videojs tracker auto-detects events emitted by Videojs Player.
+- Ensure that the **Browser agent** is successfully instrumented before deploying the media tracker.
+- For questions and feedback on this package, please visit the [Explorer's Hub](https://discuss.newrelic.com), New Relic's community support forum.
+- Looking to contribute to the Player Name agent code base? See [DEVELOPING.md](./DEVELOPING.md) for instructions on building and testing the browser agent library, and Contributors.
 
-Install dependencies:
+## Adding The Videojs Tracker To Your Project
 
-```
-$ npm install
-```
+To integrate New Relic Tracker Agent into your web application effectively, you'll need to instrument the Browser Agent code first and then add the player script. Below is a guide on how to do this within your HTML file:
 
-And build:
-
-```
-$ npm run build:dev
-```
-
-Or if you need a production build:
-
-```
-$ npm run build
-```
-
-## Usage
-Add **scripts** inside the `dist` folder to your page.
-
-> If the `dist` folder is not included, run `npm i && npm run build` to build it.
-
-### Standard way
-```javascript
-// var player = videojs('my-player')
-nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player))
+```html
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>New Relic Tracker Integration</title>
+    <script src="path/to/browser-agent.js"></script>
+    <!-- snippet code generated  -->
+    <script src="path/to/videojs-tracker.js"></script>
+  </head>
+  <body>
+    <!-- Your HTML content -->
+  </body>
+</html>
 ```
 
-### VideoJS Plugin Ecosystem
-You can use the built-in Videojs plugin system.
+## Instantiating the Videojs Tracker
 
 ```javascript
-// var player = videojs('my-player')
-player.newrelic()
+// Add a VideojsTracker
+nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player));
+
+// For setting userId
+nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player)).setUserId('userId');
+
+//For setting custom attributes const tracker
+const tracker = new nrvideo.VideojsjsTracker(player, {
+  customData: {
+    contentTitle: 'Override Existing Title',
+    customPlayerName: 'myGreatPlayer',
+    customPlayerVersion: '9.4.2',
+  },
+});
+
+// For Sending custom Action with Attributes
+
+const tracker = new nrvideo.VideojsTracker(player);
+
+nrvideo.Core.addTracker(tracker);
+
+tracker.sendCustom('CUSTOM_ACTION', 'state time', {
+  test1: 'value1',
+  test2: 'value2',
+});
 ```
 
-## Custom Attributes
-You can add custom attributes in the following ways.  You can override OOTB attributes or create your own.
+## Data Model
 
-Using the standard way
-```
-    const tracker = new nrvideo.VideojsTracker(player,{ customData: { 
-      contentTitle: "Override Existing Title",
-      customPlayerName: "myGreatPlayer", 
-      customPlayerVersion: "9.4.2"
-    } })
-    
-   nrvideo.Core.addTracker(tracker)
-   tracker.customData.myGreeting = "hello from vjs"
-``` 
+To understand which actions and attributes are captured and emitted by the Videojs Player under different event types, see [DataModel.md](./DATAMODEL.md).
 
-Using the plugin System
-```
-    var player = videojs('my-video')
-    const tracker = player.newrelic()
-    tracker.customData.myGreeting = "hello from vjs"
-```
+## Support
 
-### Verify instrumentation
+New Relic hosts and moderates an online forum where customers can interact with New Relic employees as well as other customers to get help and share best practices. Like all official New Relic open source projects, there's a related Community topic in the New Relic [Explorer's Hub](https://discuss.newrelic.com).
 
-On the page you've instrumented...
+We encourage you to bring your experiences and questions to the [Explorer's Hub](https://discuss.newrelic.com) where our community members collaborate on solutions and new ideas.
 
-&nbsp;&nbsp; Is Browser Agent loaded? → Type `newrelic` in the console.
+## Contributing
 
-&nbsp;&nbsp; Is Video Script Loaded? → Type `nrvideo` in the console.
+We encourage your contributions to improve New Relic Videojs Tracker! Keep in mind when you submit your pull request, you'll need to sign the CLA via the click-through using CLA-Assistant. You only have to sign the CLA one time per project. If you have any questions, or to execute our corporate CLA, required if your contribution is on behalf of a company, please drop us an email at opensource@newrelic.com.
 
-&nbsp;&nbsp; Turn on debug → add `?nrvideo-debug=true` or `&nrvideo-debug=true` in the URL.
+**A note about vulnerabilities**
 
-&nbsp;&nbsp; Is Video Tracker correctly instantiated? → filter console by `[nrvideo]` and look for logs.
+As noted in our [security policy](../../security/policy), New Relic is committed to the privacy and security of our customers and their data. We believe that providing coordinated disclosure by security researchers and engaging with the security community are important means to achieve our security goals.
 
-&nbsp;&nbsp; Search for `Tracker` or `nrvideo`.
+If you believe you have found a security vulnerability in this project or any of New Relic's products or websites, we welcome and greatly appreciate you reporting it to New Relic through [our bug bounty program](https://docs.newrelic.com/docs/security/security-privacy/information-security/report-security-vulnerabilities/).
 
-&nbsp;&nbsp;&nbsp;&nbsp;<img width="200" alt="Console Search" src="https://user-images.githubusercontent.com/8813505/82217239-22172c00-98e8-11ea-9aa3-a9a675fd65a5.png">
+## License
 
-### Examples
-
-Check out the `samples` folder for complete usage examples.
-
-# Open source license
-
-This project is distributed under the [Apache 2 license](LICENSE).
-
-# Support
-
-New Relic has open-sourced this project. This project is provided AS-IS WITHOUT WARRANTY OR DEDICATED SUPPORT. Issues and contributions should be reported to the project here on GitHub.
-
-We encourage you to bring your experiences and questions to the [Explorers Hub](https://discuss.newrelic.com) where our community members collaborate on solutions and new ideas.
-
-## Community
-
-New Relic hosts and moderates an online forum where customers can interact with New Relic employees as well as other customers to get help and share best practices. Like all official New Relic open source projects, there's a related Community topic in the New Relic Explorers Hub. You can find this project's topic/threads here:
-
-https://discuss.newrelic.com/t/videojs-tracker/100305
-
-## Issues / enhancement requests
-
-Issues and enhancement requests can be submitted in the [Issues tab of this repository](../../issues). Please search for and review the existing open issues before submitting a new issue.
-
-# Contributing
-
-Contributions are encouraged! If you submit an enhancement request, we'll invite you to contribute the change yourself. Please review our [Contributors Guide](CONTRIBUTING.md).
-
-Keep in mind that when you submit your pull request, you'll need to sign the CLA via the click-through using CLA-Assistant. If you'd like to execute our corporate CLA, or if you have any questions, please drop us an email at opensource+videoagent@newrelic.com.
+New Relic Videojs Tracker is licensed under the [Apache 2.0](http://apache.org/licenses/LICENSE-2.0.txt) License.
