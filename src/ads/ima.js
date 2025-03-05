@@ -26,7 +26,7 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
   }
 
   getAdPosition() {
-    const podInfoData = player.ima
+    const podInfoData = this.player.ima
       ?.getAdsManager()
       ?.getCurrentAd()
       ?.getAdPodInfo()?.data?.podIndex;
