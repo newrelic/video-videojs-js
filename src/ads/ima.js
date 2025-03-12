@@ -26,60 +26,57 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
   }
 
   getAdPosition() {
-    const podInfoData = this.player.ima
-      ?.getAdsManager()
-      ?.getCurrentAd()
-      ?.getAdPodInfo()?.data?.podIndex;
+    if (
+      this.lastAdData &&
+      this.lastAdData.podInfo &&
+      this.lastAdData.podInfo.podIndex !== undefined
+    ) {
+      const podIndex = this.lastAdData.podInfo.podIndex;
 
-    if (podInfoData === 0) {
-      return 'pre';
-    } else if (podInfoData === -1) {
-      return 'post';
-    } else {
-      return 'mid';
+      if (podIndex === 0) {
+        return 'pre';
+      } else if (podIndex === -1) {
+        return 'post';
+      } else {
+        return 'mid';
+      }
     }
+    return null;
   }
 
   getDuration() {
-    try {
-      return (
-        this.player.ima.getAdsManager().getCurrentAd().getDuration() * 1000
-      );
-    } catch (err) {
-      /* do nothing */
+    if (this.lastAdData && this.lastAdData.duration !== undefined) {
+      return this.lastAdData.duration * 1000;
     }
+    return null;
   }
 
   getVideoId() {
-    try {
-      return this.player.ima.getAdsManager().getCurrentAd().getAdId();
-    } catch (err) {
-      /* do nothing */
+    if (this.lastAdData && this.lastAdData.adId) {
+      return this.lastAdData.adId;
     }
+    return null;
   }
 
   getAdCreativeId() {
-    try {
-      return this.player.ima.getAdsManager().getCurrentAd().getCreativeId();
-    } catch (err) {
-      /* do nothing */
+    if (this.lastAdData && this.lastAdData.creativeId) {
+      return this.lastAdData.creativeId;
     }
+    return null;
   }
 
   getSrc() {
-    try {
-      return this.player.ima.getAdsManager().getCurrentAd().getMediaUrl();
-    } catch (err) {
-      /* do nothing */
+    if (this.lastAdData && this.lastAdData.mediaUrl) {
+      return this.lastAdData.mediaUrl;
     }
+    return null;
   }
 
   getTitle() {
-    try {
-      return this.player.ima.getAdsManager().getCurrentAd().getTitle();
-    } catch (err) {
-      /* do nothing */
+    if (this.lastAdData && this.lastAdData.title) {
+      return this.lastAdData.title;
     }
+    return null;
   }
 
   getPlayhead() {
@@ -102,6 +99,8 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
     let e = google.ima.AdEvent.Type;
     let AD_ERROR = google.ima.AdErrorEvent.Type.AD_ERROR;
 
+    //store ad data
+    this.lastAdData = null;
     // debug
     nrvideo.Log.debugCommonVideoEvents(this.player.ima.addEventListener, [
       null,
@@ -168,22 +167,28 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
     this.player.ima.removeEventListener(e.MIDPOINT, this.onMidpoint);
     this.player.ima.removeEventListener(e.THIRD_QUARTILE, this.onThirdQuartile);
     this.player.ima.removeEventListener(AD_ERROR, this.onError);
+    //clear ad data
+    this.lastAdData = null;
   }
 
   onLoaded(e) {
+    this.lastAdData = this.getAdData();
     this.sendRequest();
   }
 
   onStart(e) {
+    this.lastAdData = this.getAdData();
     this.sendStart();
   }
 
   onComplete(e) {
     this.sendEnd();
+    this.lastAdData = null; // Clear the data
   }
 
   onSkipped(e) {
     this.sendEnd({ skipped: true });
+    this.lastAdData = null; // Clear the data
   }
 
   onError(e) {
@@ -217,5 +222,28 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
 
   onResumed() {
     this.sendResume();
+  }
+
+  getAdData() {
+    try {
+      const adsManager = this.player.ima.getAdsManager();
+      if (adsManager) {
+        const currentAd = adsManager.getCurrentAd();
+        if (currentAd) {
+          return {
+            adId: currentAd.getAdId(),
+            creativeId: currentAd.getCreativeId(),
+            duration: currentAd.getDuration(),
+            mediaUrl: currentAd.getMediaUrl(),
+            title: currentAd.getTitle(),
+            podInfo: currentAd.getAdPodInfo()?.data,
+            // Add other properties as needed
+          };
+        }
+      }
+      return null;
+    } catch (err) {
+      return null;
+    }
   }
 }
