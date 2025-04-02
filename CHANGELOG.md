@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [3.0.1] - 2025/04/02
+
+### Bug Fixes
+
+- Resolved an issue where custom attribute definitions were not accepting options as arguments.
+
 ## [3.0.0] - 2025/02/20
 
 ### New Event Type Introduced [VideoAction, VideoErrorAction, VideoAdAction, VideoCustomAction]

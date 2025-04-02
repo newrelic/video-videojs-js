@@ -47,8 +47,13 @@
       //PLAYER
       var player = videojs('myVideo');
 
+      // defining new relic videojs tracker
+
+      //const tracker = new nrvideo.VideojsTracker(player, { heartbeat: 60000 });
+      const tracker = new nrvideo.VideojsTracker(player);
+
       //NEWRELIC
-      nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player));
+      nrvideo.Core.addTracker(tracker);
 
       // IMA3
       // pre mid post roll

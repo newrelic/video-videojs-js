@@ -9,8 +9,8 @@ import BrightcoveImaAdsTracker from './ads/brightcove-ima';
 import FreewheelAdsTracker from './ads/freewheel';
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
-  constructor(player) {
-    super(player);
+  constructor(player, options) {
+    super(player, options);
     this.isContentEnd = false;
     this.imaAdCuePoints = '';
   }
