@@ -37,7 +37,7 @@
     "webpack-obfuscator": "^3.5.1"
   },
   "dependencies": {
-    "@rajeev-kumar/video-core": "file:rajeev-kumar-video-core-3.0.1.tgz"
+    "@newrelic/video-core": "^3.0.1"
   },
   "files": [
     "THIRD_PARTY_NOTICES.md",
