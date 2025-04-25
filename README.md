@@ -35,10 +35,10 @@ To integrate New Relic Tracker Agent into your web application effectively, you'
 
 ```javascript
 // Add a VideojsTracker
-nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player));
+const tracker = new VideojsTracker(player);
 
 //For setting custom attributes const tracker
-const tracker = new nrvideo.VideojsjsTracker(player, {
+const tracker = new VideojsjsTracker(player, {
   customData: {
     contentTitle: 'Override Existing Title',
     customPlayerName: 'myGreatPlayer',
