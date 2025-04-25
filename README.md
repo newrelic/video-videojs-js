@@ -45,7 +45,7 @@ $ npm install @newrelic/video-videojs --save
 
 ```javascript
 
-import VideojsTracker from "newrelic-video-videojs"; 
+import VideojsTracker from "@newrelic/video-videojs"; 
 
 // Add a VideojsTracker
 const tracker = new VideojsTracker(player);
