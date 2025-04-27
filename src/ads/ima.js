@@ -194,10 +194,9 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
   onError(e) {
     const adError = e.getError();
 
-    // Optional: Extract detailed error information
     const errorCode = adError.getErrorCode();
-    const errorName = adError.getMessage();
-    this.sendError({ adError, errorCode, errorName });
+    const errorMessage = adError.getMessage();
+    this.sendError({ adError, errorCode, errorMessage });
   }
 
   onClick(e) {
