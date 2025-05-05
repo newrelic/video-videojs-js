@@ -1,5 +1,5 @@
 /* global google */
-import * as nrvideo from 'newrelic-video-core';
+import nrvideo from '@newrelic/video-core';
 import VideojsAdsTracker from './videojs-ads';
 
 export default class ImaAdsTracker extends VideojsAdsTracker {
