@@ -33,15 +33,17 @@ To integrate New Relic Tracker Agent into your web application effectively, you'
 
 ## Adding the agent package to your project
 
-To make the agent available to your application, install via [NPM](https://docs.npmjs.com/cli/v8/commands/npm-install).
+To make the tracker available to your application, install via [NPM](https://docs.npmjs.com/cli/v8/commands/npm-install) or [Yarn](https://classic.yarnpkg.com/lang/en/docs/cli/install/).
 
 ```shell
 $ npm install @newrelic/video-videojs --save
 ```
 
+```shell
+$ yarn add @newrelic/video-videojs
+```
+
 ## Instantiating the Videojs Tracker
-
-
 
 ```javascript
 
