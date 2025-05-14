@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## [3.0.2] - 2025-05-14
+
+- **Support:** Added support for publishing the package to npm.
+
 ## [3.0.1] - 2025/04/02
 
 ### Bug Fixes
