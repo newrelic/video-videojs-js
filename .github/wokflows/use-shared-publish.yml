@@ -20,10 +20,6 @@ jobs:
         with:
           node-version: 'lts/*'
           publish-to-npm: true
-          s3-bucket: 'nr-downloads-main'
           s3-path: 'media-agents/browser/videojs'
           file-to-upload: 'dist/umd/videojs.min.js'
-        secrets:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+       
