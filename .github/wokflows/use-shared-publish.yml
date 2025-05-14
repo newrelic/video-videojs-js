@@ -10,16 +10,10 @@ on:
 
 jobs:
   build-and-publish:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Call Centralized Publish Workflow
-        uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
-        with:
-          node-version: 'lts/*'
-          publish-to-npm: true
-          s3-path: 'media-agents/browser/videojs'
-          file-to-upload: 'dist/umd/videojs.min.js'
+    uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
+    with:
+      node-version: 'lts/*'
+      publish-to-npm: true
+      s3-path: 'media-agents/browser/videojs'
+      file-to-upload: 'dist/umd/videojs.min.js'
        
