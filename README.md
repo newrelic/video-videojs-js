@@ -36,7 +36,7 @@ To integrate New Relic Tracker Agent into your web application effectively, you'
 To make the tracker available to your application, install via [NPM](https://docs.npmjs.com/cli/v8/commands/npm-install) or [Yarn](https://classic.yarnpkg.com/lang/en/docs/cli/install/).
 
 ```shell
-$ npm install @newrelic/video-videojs --save
+$ npm install @newrelic/video-videojs
 ```
 
 ```shell
@@ -50,6 +50,7 @@ $ yarn add @newrelic/video-videojs
 import VideojsTracker from "@newrelic/video-videojs"; 
 
 // Add a VideojsTracker
+player.version = videojs.VERSION
 const tracker = new VideojsTracker(player);
 
 //For setting custom attributes const tracker
