@@ -14,7 +14,6 @@ jobs:
     continue-on-error: true
     with:
       node-version: 'lts/*'
-      publish-to-npm: true
       s3-path: 'media-agents/browser/videojs'
       file-to-upload: 'dist/umd/videojs.min.js'
     secrets:
