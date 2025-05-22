@@ -11,7 +11,6 @@ on:
 jobs:
   build-and-publish:
     uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
-    continue-on-error: true
     with:
       node-version: 'lts/*'
       s3-path: 'media-agents/browser/videojs'
