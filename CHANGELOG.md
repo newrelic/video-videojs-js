@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## [3.0.2] - 2025-05-14
+
+### Enhancements
+
+* **Publishing to npm:** The package can now be published to npm, making it easily accessible.
+
+### Build
+
+* **Distribution Formats:** Added `cjs`, `esm`, and `umd` builds to the `dist` folder, ensuring compatibility with CommonJS, ES Modules, and UMD module formats.
+
 ## [3.0.1] - 2025/04/02
 
 ### Bug Fixes

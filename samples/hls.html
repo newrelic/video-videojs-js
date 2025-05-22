@@ -7,7 +7,7 @@
     <!-- newrelic browser agent. REMEMBER TO REPLACE THIS SCRIPT WITH YOUR OWN BROWSER AGENT -->
     <script type="text/javascript" src="agent.js"></script>
     <!-- tracker -->
-    <script src="../dist/newrelic-video-videojs.min.js"></script>
+    <script src="../dist//umd/videojs.min.js"></script>
   </head>
 
   <body>
@@ -25,7 +25,7 @@
     </video>
     <script>
       var player = videojs('my-video');
-      nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player));
+      const tracker = new VideojsTracker(player);
     </script>
   </body>
 </html>
