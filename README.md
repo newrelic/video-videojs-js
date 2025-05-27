@@ -45,6 +45,8 @@ $ yarn add @newrelic/video-videojs
 
 ## Instantiating the Videojs Tracker
 
+
+
 ```javascript
 
 import VideojsTracker from "@newrelic/video-videojs"; 
