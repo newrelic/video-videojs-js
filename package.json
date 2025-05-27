@@ -1,6 +1,6 @@
 {
   "name": "@newrelic/video-videojs",
-  "version": "3.0.2",
+  "version": "3.1.0",
   "description": "New relic tracker for Videojs",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
@@ -37,7 +37,7 @@
     "webpack-obfuscator": "^3.5.1"
   },
   "dependencies": {
-    "@newrelic/video-core": "^3.0.1"
+    "@newrelic/video-core": "^3.1.0"
   },
   "files": [
     "THIRD_PARTY_NOTICES.md",
