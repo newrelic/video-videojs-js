@@ -14,7 +14,7 @@ code, the source code can be found at [https://github.com/newrelic/video-videojs
 
 **[dependencies](#dependencies)**
 
-* [@rajeev-kumar/video-core](#rajeev-kumarvideo-core)
+* [@newrelic/video-core](#newrelicvideo-core)
 
 **[devDependencies](#devDependencies)**
 
@@ -35,9 +35,9 @@ code, the source code can be found at [https://github.com/newrelic/video-videojs
 
 ## dependencies
 
-### @rajeev-kumar/video-core
+### @newrelic/video-core
 
-This product includes source derived from [@rajeev-kumar/video-core](https://github.com/newrelic/video-core-js) ([v3.0.1](https://github.com/newrelic/video-core-js/tree/v3.0.1)), distributed under the [MIT License](https://github.com/newrelic/video-core-js/blob/v3.0.1/LICENSE.txt):
+This product includes source derived from [@newrelic/video-core](https://github.com/newrelic/video-core-js) ([v3.1.0](https://github.com/newrelic/video-core-js/tree/v3.1.0)), distributed under the [MIT License](https://github.com/newrelic/video-core-js/blob/v3.1.0/LICENSE.txt):
 
 ```
                                  Apache License
@@ -249,7 +249,7 @@ This product includes source derived from [@rajeev-kumar/video-core](https://git
 
 ### @babel/core
 
-This product includes source derived from [@babel/core](https://github.com/babel/babel) ([v7.24.5](https://github.com/babel/babel/tree/v7.24.5)), distributed under the [MIT License](https://github.com/babel/babel/blob/v7.24.5/LICENSE):
+This product includes source derived from [@babel/core](https://github.com/babel/babel) ([v7.27.1](https://github.com/babel/babel/tree/v7.27.1)), distributed under the [MIT License](https://github.com/babel/babel/blob/v7.27.1/LICENSE):
 
 ```
 MIT License
@@ -279,7 +279,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### @babel/plugin-transform-modules-commonjs
 
-This product includes source derived from [@babel/plugin-transform-modules-commonjs](https://github.com/babel/babel) ([v7.24.1](https://github.com/babel/babel/tree/v7.24.1)), distributed under the [MIT License](https://github.com/babel/babel/blob/v7.24.1/LICENSE):
+This product includes source derived from [@babel/plugin-transform-modules-commonjs](https://github.com/babel/babel) ([v7.27.1](https://github.com/babel/babel/tree/v7.27.1)), distributed under the [MIT License](https://github.com/babel/babel/blob/v7.27.1/LICENSE):
 
 ```
 MIT License
@@ -309,7 +309,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 ### @babel/preset-env
 
-This product includes source derived from [@babel/preset-env](https://github.com/babel/babel) ([v7.24.5](https://github.com/babel/babel/tree/v7.24.5)), distributed under the [MIT License](https://github.com/babel/babel/blob/v7.24.5/LICENSE):
+This product includes source derived from [@babel/preset-env](https://github.com/babel/babel) ([v7.27.2](https://github.com/babel/babel/tree/v7.27.2)), distributed under the [MIT License](https://github.com/babel/babel/blob/v7.27.2/LICENSE):
 
 ```
 MIT License
@@ -547,7 +547,7 @@ This product includes source derived from [@newrelic/newrelic-oss-cli](https://g
 
 ### aws-sdk
 
-This product includes source derived from [aws-sdk](https://github.com/aws/aws-sdk-js) ([v2.1621.0](https://github.com/aws/aws-sdk-js/tree/v2.1621.0)), distributed under the [Apache-2.0 License](https://github.com/aws/aws-sdk-js/blob/v2.1621.0/LICENSE.txt):
+This product includes source derived from [aws-sdk](https://github.com/aws/aws-sdk-js) ([v2.1692.0](https://github.com/aws/aws-sdk-js/tree/v2.1692.0)), distributed under the [Apache-2.0 License](https://github.com/aws/aws-sdk-js/blob/v2.1692.0/LICENSE.txt):
 
 ```
 
@@ -757,7 +757,7 @@ This product includes source derived from [aws-sdk](https://github.com/aws/aws-s
 
 ### babel-loader
 
-This product includes source derived from [babel-loader](https://github.com/babel/babel-loader) ([v9.1.3](https://github.com/babel/babel-loader/tree/v9.1.3)), distributed under the [MIT License](https://github.com/babel/babel-loader/blob/v9.1.3/LICENSE):
+This product includes source derived from [babel-loader](https://github.com/babel/babel-loader) ([v9.2.1](https://github.com/babel/babel-loader/tree/v9.2.1)), distributed under the [MIT License](https://github.com/babel/babel-loader/blob/v9.2.1/LICENSE):
 
 ```
 Copyright (c) 2014-2019 Luís Couto <hello@luiscouto.pt>
@@ -996,27 +996,29 @@ This product includes source derived from [videojs-ima](https://github.com/googl
 
 ### webpack-cli
 
-This product includes source derived from [webpack-cli](https://github.com/webpack/webpack-cli) ([v4.9.2](https://github.com/webpack/webpack-cli/tree/v4.9.2)), distributed under the [MIT License](https://github.com/webpack/webpack-cli/blob/v4.9.2/README.md):
+This product includes source derived from [webpack-cli](https://github.com/webpack/webpack-cli) ([v4.10.0](https://github.com/webpack/webpack-cli/tree/v4.10.0)), distributed under the [MIT License](https://github.com/webpack/webpack-cli/blob/v4.10.0/LICENSE):
 
 ```
-MIT License
+Copyright JS Foundation and other contributors
 
-Copyright (c) <year> <copyright holders>
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and 
-associated documentation files (the "Software"), to deal in the Software without restriction, including 
-without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell 
-copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the 
-following conditions:
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
 
-The above copyright notice and this permission notice shall be included in all copies or substantial 
-portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT 
-LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO 
-EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER 
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE 
-USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### webpack-obfuscator
@@ -1047,7 +1049,7 @@ THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ### webpack
 
-This product includes source derived from [webpack](https://github.com/webpack/webpack) ([v5.91.0](https://github.com/webpack/webpack/tree/v5.91.0)), distributed under the [MIT License](https://github.com/webpack/webpack/blob/v5.91.0/LICENSE):
+This product includes source derived from [webpack](https://github.com/webpack/webpack) ([v5.99.9](https://github.com/webpack/webpack/tree/v5.99.9)), distributed under the [MIT License](https://github.com/webpack/webpack/blob/v5.99.9/LICENSE):
 
 ```
 Copyright JS Foundation and other contributors

@@ -1,59 +1,60 @@
 {
-  "lastUpdated": "Fri Apr 25 2025 08:55:26 GMT+0530 (India Standard Time)",
+  "lastUpdated": "Tue May 27 2025 10:43:59 GMT+0530 (India Standard Time)",
   "projectName": "newrelic-videojs",
   "projectUrl": "https://github.com/newrelic/video-videojs-js.git",
   "includeOptDeps": true,
+  "optionalDependencies": {},
   "includeDev": true,
   "dependencies": {
-    "@rajeev-kumar/video-core@3.0.1": {
-      "name": "@rajeev-kumar/video-core",
-      "version": "3.0.1",
-      "range": "file:rajeev-kumar-video-core-3.0.1.tgz",
+    "@newrelic/video-core@3.1.0": {
+      "name": "@newrelic/video-core",
+      "version": "3.1.0",
+      "range": "^3.1.0",
       "licenses": "MIT",
       "repoUrl": "https://github.com/newrelic/video-core-js",
-      "versionedRepoUrl": "https://github.com/newrelic/video-core-js/tree/v3.0.1",
-      "licenseFile": "node_modules/@rajeev-kumar/video-core/LICENSE.txt",
-      "licenseUrl": "https://github.com/newrelic/video-core-js/blob/v3.0.1/LICENSE.txt",
+      "versionedRepoUrl": "https://github.com/newrelic/video-core-js/tree/v3.1.0",
+      "licenseFile": "node_modules/@newrelic/video-core/LICENSE.txt",
+      "licenseUrl": "https://github.com/newrelic/video-core-js/blob/v3.1.0/LICENSE.txt",
       "licenseTextSource": "file",
       "publisher": "Jordi Aguilar"
     }
   },
   "devDependencies": {
-    "@babel/core@7.24.5": {
+    "@babel/core@7.27.1": {
       "name": "@babel/core",
-      "version": "7.24.5",
+      "version": "7.27.1",
       "range": "^7.24.5",
       "licenses": "MIT",
       "repoUrl": "https://github.com/babel/babel",
-      "versionedRepoUrl": "https://github.com/babel/babel/tree/v7.24.5",
+      "versionedRepoUrl": "https://github.com/babel/babel/tree/v7.27.1",
       "licenseFile": "node_modules/@babel/core/LICENSE",
-      "licenseUrl": "https://github.com/babel/babel/blob/v7.24.5/LICENSE",
+      "licenseUrl": "https://github.com/babel/babel/blob/v7.27.1/LICENSE",
       "licenseTextSource": "file",
       "publisher": "The Babel Team",
       "url": "https://babel.dev/team"
     },
-    "@babel/plugin-transform-modules-commonjs@7.24.1": {
+    "@babel/plugin-transform-modules-commonjs@7.27.1": {
       "name": "@babel/plugin-transform-modules-commonjs",
-      "version": "7.24.1",
+      "version": "7.27.1",
       "range": "^7.24.1",
       "licenses": "MIT",
       "repoUrl": "https://github.com/babel/babel",
-      "versionedRepoUrl": "https://github.com/babel/babel/tree/v7.24.1",
+      "versionedRepoUrl": "https://github.com/babel/babel/tree/v7.27.1",
       "licenseFile": "node_modules/@babel/plugin-transform-modules-commonjs/LICENSE",
-      "licenseUrl": "https://github.com/babel/babel/blob/v7.24.1/LICENSE",
+      "licenseUrl": "https://github.com/babel/babel/blob/v7.27.1/LICENSE",
       "licenseTextSource": "file",
       "publisher": "The Babel Team",
       "url": "https://babel.dev/team"
     },
-    "@babel/preset-env@7.24.5": {
+    "@babel/preset-env@7.27.2": {
       "name": "@babel/preset-env",
-      "version": "7.24.5",
+      "version": "7.27.2",
       "range": "^7.24.5",
       "licenses": "MIT",
       "repoUrl": "https://github.com/babel/babel",
-      "versionedRepoUrl": "https://github.com/babel/babel/tree/v7.24.5",
+      "versionedRepoUrl": "https://github.com/babel/babel/tree/v7.27.2",
       "licenseFile": "node_modules/@babel/preset-env/LICENSE",
-      "licenseUrl": "https://github.com/babel/babel/blob/v7.24.5/LICENSE",
+      "licenseUrl": "https://github.com/babel/babel/blob/v7.27.2/LICENSE",
       "licenseTextSource": "file",
       "publisher": "The Babel Team",
       "url": "https://babel.dev/team"
@@ -70,28 +71,28 @@
       "licenseTextSource": "file",
       "publisher": "New Relic"
     },
-    "aws-sdk@2.1621.0": {
+    "aws-sdk@2.1692.0": {
       "name": "aws-sdk",
-      "version": "2.1621.0",
+      "version": "2.1692.0",
       "range": "^2.920.0",
       "licenses": "Apache-2.0",
       "repoUrl": "https://github.com/aws/aws-sdk-js",
-      "versionedRepoUrl": "https://github.com/aws/aws-sdk-js/tree/v2.1621.0",
+      "versionedRepoUrl": "https://github.com/aws/aws-sdk-js/tree/v2.1692.0",
       "licenseFile": "node_modules/aws-sdk/LICENSE.txt",
-      "licenseUrl": "https://github.com/aws/aws-sdk-js/blob/v2.1621.0/LICENSE.txt",
+      "licenseUrl": "https://github.com/aws/aws-sdk-js/blob/v2.1692.0/LICENSE.txt",
       "licenseTextSource": "file",
       "publisher": "Amazon Web Services",
       "url": "https://aws.amazon.com/"
     },
-    "babel-loader@9.1.3": {
+    "babel-loader@9.2.1": {
       "name": "babel-loader",
-      "version": "9.1.3",
+      "version": "9.2.1",
       "range": "^9.1.3",
       "licenses": "MIT",
       "repoUrl": "https://github.com/babel/babel-loader",
-      "versionedRepoUrl": "https://github.com/babel/babel-loader/tree/v9.1.3",
+      "versionedRepoUrl": "https://github.com/babel/babel-loader/tree/v9.2.1",
       "licenseFile": "node_modules/babel-loader/LICENSE",
-      "licenseUrl": "https://github.com/babel/babel-loader/blob/v9.1.3/LICENSE",
+      "licenseUrl": "https://github.com/babel/babel-loader/blob/v9.2.1/LICENSE",
       "licenseTextSource": "file",
       "publisher": "Luis Couto",
       "email": "hello@luiscouto.pt"
@@ -108,16 +109,16 @@
       "licenseTextSource": "file",
       "publisher": "Google Inc."
     },
-    "webpack-cli@4.9.2": {
+    "webpack-cli@4.10.0": {
       "name": "webpack-cli",
-      "version": "4.9.2",
+      "version": "4.10.0",
       "range": "^4.9.2",
       "licenses": "MIT",
       "repoUrl": "https://github.com/webpack/webpack-cli",
-      "versionedRepoUrl": "https://github.com/webpack/webpack-cli/tree/v4.9.2",
-      "licenseFile": "node_modules/webpack-cli/README.md",
-      "licenseUrl": "https://github.com/webpack/webpack-cli/blob/v4.9.2/README.md",
-      "licenseTextSource": "spdx"
+      "versionedRepoUrl": "https://github.com/webpack/webpack-cli/tree/v4.10.0",
+      "licenseFile": "node_modules/webpack-cli/LICENSE",
+      "licenseUrl": "https://github.com/webpack/webpack-cli/blob/v4.10.0/LICENSE",
+      "licenseTextSource": "file"
     },
     "webpack-obfuscator@3.5.1": {
       "name": "webpack-obfuscator",
@@ -131,18 +132,17 @@
       "licenseTextSource": "file",
       "publisher": "Timofey Kachalov"
     },
-    "webpack@5.91.0": {
+    "webpack@5.99.9": {
       "name": "webpack",
-      "version": "5.91.0",
+      "version": "5.99.9",
       "range": "^5.91.0",
       "licenses": "MIT",
       "repoUrl": "https://github.com/webpack/webpack",
-      "versionedRepoUrl": "https://github.com/webpack/webpack/tree/v5.91.0",
+      "versionedRepoUrl": "https://github.com/webpack/webpack/tree/v5.99.9",
       "licenseFile": "node_modules/webpack/LICENSE",
-      "licenseUrl": "https://github.com/webpack/webpack/blob/v5.91.0/LICENSE",
+      "licenseUrl": "https://github.com/webpack/webpack/blob/v5.99.9/LICENSE",
       "licenseTextSource": "file",
       "publisher": "Tobias Koppers @sokra"
     }
-  },
-  "optionalDependencies": {}
+  }
 }
