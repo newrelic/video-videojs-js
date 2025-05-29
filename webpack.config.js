@@ -21,7 +21,7 @@ module.exports = [
     entry: "./src/index.js",
     output: {
       path: path.resolve(__dirname, "./dist/umd"),
-      filename: "videojs" + ".min.js",
+      filename: "newrelic-video-videojs.min.js",
       library: "VideojsTracker",
       libraryTarget: "umd",
       libraryExport: "default", 
