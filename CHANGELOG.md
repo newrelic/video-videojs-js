@@ -10,11 +10,12 @@
 
 * **Distribution Formats:** Added `cjs`, `esm`, and `umd` builds to the `dist` folder, ensuring compatibility with CommonJS, ES Modules, and UMD module formats.
 
-## [3.0.1] - 2025/04/02
+## [3.0.1] - 2025-04-24
 
 ### Bug Fixes
 
 - Resolved an issue where custom attribute definitions were not accepting options as arguments.
+- **Update:** The `errorName` attribute has been deprecated and `errorMessage` is introduced as its replacement.
 
 ## [3.0.0] - 2025/02/20
 
