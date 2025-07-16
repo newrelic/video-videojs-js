@@ -1,0 +1,21 @@
+name: Build and Publish
+
+on:
+  pull_request:
+    types:
+      - closed
+  push:
+    branches:
+      - stable
+
+jobs:
+  build-and-publish:
+    uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
+    with:
+      node-version: 'lts/*'
+      s3-path: 'media-agents/browser/videojs'
+      file-to-upload: 'dist/umd/newrelic-video-videojs.min.js'
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }} 
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }} 
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}   

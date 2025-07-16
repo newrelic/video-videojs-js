@@ -1,4 +1,4 @@
-import * as nrvideo from 'newrelic-video-core';
+import nrvideo from '@newrelic/video-core';
 import pkg from '../package.json';
 import ContribHlsTech from './techs/contrib-hls';
 import HlsJsTech from './techs/hls-js';
@@ -9,10 +9,11 @@ import BrightcoveImaAdsTracker from './ads/brightcove-ima';
 import FreewheelAdsTracker from './ads/freewheel';
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
-  constructor(player) {
-    super(player);
+  constructor(player, options) {
+    super(player, options);
     this.isContentEnd = false;
     this.imaAdCuePoints = '';
+    nrvideo.Core.addTracker(this);
   }
 
   getTech() {
@@ -101,7 +102,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   getPlayerVersion() {
-    return typeof videojs !== 'undefined' && videojs.VERSION;
+    return this.player?.version;
   }
 
   isMuted() {

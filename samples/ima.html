@@ -28,9 +28,8 @@
     <!-- newrelic browser agent. REMEMBER TO REPLACE THIS SCRIPT WITH YOUR OWN BROWSER AGENT -->
     <script type="text/javascript" src="agent.js"></script>
     <!-- New Relic Tracker -->
-    <script src="../dist/newrelic-video-videojs.min.js"></script>
+    <script src="../dist/umd/newrelic-video-videojs.min.js"></script>
   </head>
-
   <body>
     <video
       id="myVideo"
@@ -47,17 +46,8 @@
       //PLAYER
       var player = videojs('myVideo');
 
-      // //NEWRELIC
-      nrvideo.Core.addTracker(new nrvideo.VideojsTracker(player));
-
-      // this.nrTracker = new nrvideo.VideojsTracker(player);
-      // // ID is automatically included for authed users
-
-      // this.nrTracker.setOptions({
-      //   customData: { llhls: false, contentTitle: this.roomName },
-      //   heartbeat: 120000,
-      // });
-      // nrvideo.Core.addTracker(this.nrTracker);
+      const tracker = new VideojsTracker(player);
+      //NEWRELIC
 
       // IMA3
       // pre mid post roll
