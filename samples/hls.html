@@ -25,7 +25,17 @@
     </video>
     <script>
       var player = videojs('my-video');
-      const tracker = new VideojsTracker(player);
+      const options = {
+        info: {
+          beacon: 'xxxxxxxxxx',
+          errorBeacon: 'xxxxxxxxx',
+          licenseKey: 'xxxxxxxxxxx',
+          applicationID: 'xxxxxxxx',
+          sa: 1,
+        },
+      };
+
+      const tracker = new VideojsTracker(player, options);
     </script>
   </body>
 </html>

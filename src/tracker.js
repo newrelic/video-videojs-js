@@ -13,7 +13,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     super(player, options);
     this.isContentEnd = false;
     this.imaAdCuePoints = '';
-    nrvideo.Core.addTracker(this);
+    nrvideo.Core.addTracker(this, options);
   }
 
   getTech() {
