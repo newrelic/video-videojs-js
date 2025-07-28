@@ -12,8 +12,7 @@ if (typeof videojs !== 'undefined') {
    */
   registerPlugin('newrelic', function (options) {
     if (!this.newrelictracker) {
-      this.newrelictracker = new nrvideo.VideojsTracker(this);
-      nrvideo.Core.addTracker(this.newrelictracker);
+      this.newrelictracker = new VideojsTracker(this);
     }
     return this.newrelictracker;
   });

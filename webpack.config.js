@@ -1,41 +1,40 @@
-var path = require("path");
-var webpack = require("webpack");
-var TerserPlugin = require("terser-webpack-plugin");
-var WebpackObfuscator = require("webpack-obfuscator");
-var pkg = require("./package.json");
+var path = require('path');
+var webpack = require('webpack');
+var TerserPlugin = require('terser-webpack-plugin');
+var pkg = require('./package.json');
 
 var license =
-  "@license " +
+  '@license ' +
   pkg.license +
-  "\n" +
+  '\n' +
   pkg.name +
-  " " +
+  ' ' +
   pkg.version +
-  "\nCopyright New Relic <http://newrelic.com/>\n" +
-  "@author " +
+  '\nCopyright New Relic <http://newrelic.com/>\n' +
+  '@author ' +
   pkg.author;
 
 module.exports = [
   //umd
   {
-    entry: "./src/index.js",
+    entry: './src/index.js',
     output: {
-      path: path.resolve(__dirname, "./dist/umd"),
-      filename: "newrelic-video-videojs.min.js",
-      library: "VideojsTracker",
-      libraryTarget: "umd",
-      libraryExport: "default", 
+      path: path.resolve(__dirname, './dist/umd'),
+      filename: 'newrelic-video-videojs.min.js',
+      library: 'VideojsTracker',
+      libraryTarget: 'umd',
+      libraryExport: 'default',
     },
-    devtool: "source-map",
+    devtool: 'source-map',
     module: {
       rules: [
         {
           test: /\.(?:js|mjs|cjs)$/,
           exclude: /node_modules/,
           use: {
-            loader: "babel-loader",
+            loader: 'babel-loader',
             options: {
-              presets: [["@babel/preset-env"]],
+              presets: [['@babel/preset-env']],
             },
           },
         },
@@ -46,36 +45,27 @@ module.exports = [
         banner: license,
         entryOnly: true,
       }),
-      new WebpackObfuscator(
-        {
-          rotateStringArray: true,
-          stringArray: true,
-          stringArrayThreshold: 0.75,
-          identifierNamesGenerator: "mangled",
-        },
-        ["excluded.js"]
-      ),
     ],
   },
   // CommonJS Build
   {
-    entry: "./src/index.js",
+    entry: './src/index.js',
     output: {
-      path: path.resolve(__dirname, "./dist/cjs"),
-      filename: "index.js",
-      library: "VideojsTracker",
-      libraryTarget: "commonjs2", // CommonJS format
+      path: path.resolve(__dirname, './dist/cjs'),
+      filename: 'index.js',
+      library: 'VideojsTracker',
+      libraryTarget: 'commonjs2', // CommonJS format
     },
-    devtool: "source-map",
+    devtool: 'source-map',
     module: {
       rules: [
         {
           test: /\.(js|mjs|cjs)$/,
           exclude: /node_modules/,
           use: {
-            loader: "babel-loader",
+            loader: 'babel-loader',
             options: {
-              presets: [["@babel/preset-env", { targets: "defaults" }]],
+              presets: [['@babel/preset-env', { targets: 'defaults' }]],
             },
           },
         },
@@ -90,41 +80,33 @@ module.exports = [
         banner: license,
         entryOnly: true,
       }),
-      // Obfuscation Plugin
-      new WebpackObfuscator(
-        {
-          rotateStringArray: true, // Rotate string arrays for obfuscation
-          stringArray: true, // Enable string array obfuscation
-          stringArrayThreshold: 0.75, // Obfuscate 75% of strings
-          identifierNamesGenerator: "mangled",
-        },
-        ["excluded.js"] // Exclude specific files if needed
-      ),
     ],
   },
   // ES Module Build
   {
-    entry: "./src/index.js",
+    entry: './src/index.js',
     output: {
-      path: path.resolve(__dirname, "./dist/esm"),
-      filename: "index.js",
+      path: path.resolve(__dirname, './dist/esm'),
+      filename: 'index.js',
       library: {
-        type: "module", // ES Module format
+        type: 'module', // ES Module format
       },
     },
     experiments: {
       outputModule: true, // Enable ES Module output
     },
-    devtool: "source-map",
+    devtool: 'source-map',
     module: {
       rules: [
         {
           test: /\.(js|mjs|cjs)$/,
           exclude: /node_modules/,
           use: {
-            loader: "babel-loader",
+            loader: 'babel-loader',
             options: {
-              presets: [["@babel/preset-env", { targets: "defaults", modules: false }]],
+              presets: [
+                ['@babel/preset-env', { targets: 'defaults', modules: false }],
+              ],
             },
           },
         },
@@ -139,15 +121,6 @@ module.exports = [
         banner: license,
         entryOnly: true,
       }),
-      new WebpackObfuscator(
-        {
-          rotateStringArray: true,
-          stringArray: true,
-          stringArrayThreshold: 0.75,
-          identifierNamesGenerator: "mangled",
-        },
-        ["excluded.js"]
-      ),
     ],
   },
 ];
