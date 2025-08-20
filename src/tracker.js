@@ -7,12 +7,14 @@ import VideojsAdsTracker from './ads/videojs-ads';
 import ImaAdsTracker from './ads/ima';
 import BrightcoveImaAdsTracker from './ads/brightcove-ima';
 import FreewheelAdsTracker from './ads/freewheel';
+import DaiAdsTracker from './ads/dai';
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
   constructor(player, options) {
     super(player, options);
     this.isContentEnd = false;
     this.imaAdCuePoints = '';
+    this.daiInitialized = false;
     nrvideo.Core.addTracker(this);
   }
 
@@ -102,7 +104,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   getPlayerVersion() {
-    return this.player?.version;
+    return this.player?.version || videojs.VERSION;
   }
 
   isMuted() {
@@ -193,6 +195,8 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
       'ads-allpods-completed',
       this.OnAdsAllpodsCompleted.bind(this)
     );
+
+    this.player.on('stream-manager', this.onStreamManager.bind(this));
   }
 
   unregisterListeners() {
@@ -217,11 +221,23 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
       'ads-allpods-completed',
       this.OnAdsAllpodsCompleted.bind(this)
     );
+
+    this.player.off('stream-manager', this.onStreamManager.bind(this));
   }
 
   onDownload(e) {
     this.sendDownload({ state: e.type });
   }
+
+  // DAI methods
+  onStreamManager(event) {
+    if (!this.adsTracker && event.StreamManager) {
+      const daiTracker = new DaiAdsTracker(this.player);
+      daiTracker.setStreamManager(event.StreamManager);
+      this.setAdsTracker(daiTracker);
+    }
+  }
+  // DAI methods end
 
   onAdsready() {
     if (!this.adsTracker) {
