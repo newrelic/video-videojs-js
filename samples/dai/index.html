@@ -1,24 +1,30 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>VideoJS IMA DAI Example</title>
-    
-    <!-- VideoJS CSS -->
-    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet">
-    
-    <!-- VideoJS IMA CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/videojs-ima@2.1.0/dist/videojs.ima.css" rel="stylesheet" type="text/css">
-    
-    <!-- Contrib Ads CSS -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.css" rel="stylesheet" type="text/css">
-    
 
+    <!-- VideoJS CSS -->
+    <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
+
+    <!-- VideoJS IMA CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/videojs-ima@2.1.0/dist/videojs.ima.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+
+    <!-- Contrib Ads CSS -->
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.css"
+      rel="stylesheet"
+      type="text/css"
+    />
 
     <!-- NEW RELIC TRACKING -->
-     <script src="../../../video-core-js/samples/agent.js"></script>
-     <script src="../../dist/umd/newrelic-video-videojs.min.js"></script>
+    <script src="../../../video-core-js/samples/agent.js"></script>
+    <script src="../../dist/umd/newrelic-video-videojs.min.js"></script>
 
     <style>
       body {
@@ -26,31 +32,31 @@
         margin: 20px;
         background-color: #f5f5f5;
       }
-      
+
       .container {
         max-width: 800px;
         margin: 0 auto;
         background: white;
         padding: 20px;
         border-radius: 8px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
       }
-      
+
       h1 {
         color: #333;
         text-align: center;
         margin-bottom: 30px;
       }
-      
+
       .video-container {
         margin-bottom: 20px;
       }
-      
+
       .controls {
         margin-top: 20px;
         text-align: center;
       }
-      
+
       button {
         background: #007cba;
         color: white;
@@ -61,11 +67,11 @@
         cursor: pointer;
         font-size: 14px;
       }
-      
+
       button:hover {
         background: #005a87;
       }
-      
+
       .status {
         margin-top: 15px;
         padding: 10px;
@@ -73,7 +79,7 @@
         border-radius: 4px;
         border-left: 4px solid #007cba;
       }
-      
+
       .event-monitor {
         margin-top: 20px;
         max-height: 300px;
@@ -86,39 +92,39 @@
         font-size: 12px;
         line-height: 1.4;
       }
-      
+
       .event-item {
         margin-bottom: 5px;
         padding: 3px 0;
         border-bottom: 1px solid #333;
       }
-      
+
       .event-timestamp {
-        color: #4CAF50;
+        color: #4caf50;
         font-weight: bold;
       }
-      
+
       .event-type {
-        color: #2196F3;
+        color: #2196f3;
         font-weight: bold;
       }
-      
+
       .event-ad {
-        color: #FF9800;
+        color: #ff9800;
       }
-      
+
       .event-newrelic {
-        color: #9C27B0;
+        color: #9c27b0;
       }
-      
+
       .event-player {
-        color: #00BCD4;
+        color: #00bcd4;
       }
-      
+
       .event-error {
-        color: #F44336;
+        color: #f44336;
       }
-      
+
       .vjs-ad-playing.vjs-ad-playing .vjs-control-bar {
         display: none;
       }
@@ -128,33 +134,37 @@
   <body>
     <div class="container">
       <h1>VideoJS IMA DAI Example</h1>
-      
+
       <div class="video-container">
-        <video id='video_player' class="video-js vjs-default-skin" 
-               controls preload="auto" width="800" height="450"
-               data-setup="{}">
-          <p class='vjs-no-js'>
+        <video
+          id="video_player"
+          class="video-js vjs-default-skin"
+          controls
+          preload="auto"
+          width="800"
+          height="450"
+          data-setup="{}"
+        >
+          <p class="vjs-no-js">
             To view this video, please enable JavaScript and consider upgrading
             to a web browser that
-            <a href='https://videojs.com/html5-video-support/' target='_blank'>
+            <a href="https://videojs.com/html5-video-support/" target="_blank">
               supports HTML5 video
             </a>
           </p>
         </video>
       </div>
-      
+
       <div class="controls">
         <button onclick="loadVodStream()">Load VOD Stream</button>
         <button onclick="loadLiveStream()">Load Live Stream</button>
         <button onclick="resetPlayer()">Reset Player</button>
       </div>
-      
-      <div id="status" class="status">
-        Ready to load content...
-      </div>
-      
+
+      <div id="status" class="status">Ready to load content...</div>
+
       <div class="event-monitor">
-        <h3 style="margin-top: 0; color: #ffffff;">Event Monitor</h3>
+        <h3 style="margin-top: 0; color: #ffffff">Event Monitor</h3>
         <div id="eventLog"></div>
       </div>
     </div>
@@ -162,19 +172,19 @@
     <!-- Load scripts in order -->
     <!-- VideoJS Core -->
     <script src="https://vjs.zencdn.net/7.20.3/video.min.js"></script>
-    
+
     <!-- Google IMA DAI SDK -->
     <script src="https://imasdk.googleapis.com/js/sdkloader/ima3_dai.js"></script>
-    
+
     <!-- VideoJS Contrib Ads -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs.ads.min.js"></script>
-    
+
     <!-- VideoJS IMA Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/videojs-ima@2.1.0/dist/videojs.ima.js"></script>
-    
+
     <!-- Event Monitor Module -->
     <script src="./event-monitor.js"></script>
-    
+
     <!-- DAI Helper Classes -->
     <script>
       // Define the DAI stream classes based on the working example pattern
@@ -185,7 +195,7 @@
           this.videoId = videoId;
         }
       };
-      
+
       window.LiveStream = class LiveStream {
         constructor(format, assetKey) {
           this.format = format;
@@ -202,34 +212,42 @@
       function initializePlayer() {
         // Initialize event monitor first
         eventMonitor = new EventMonitor('eventLog');
-        
+
         const videoOptions = {
           controls: true,
           fluid: true,
           responsive: true,
-          playbackRates: [0.5, 1, 1.25, 1.5, 2]
+          playbackRates: [0.5, 1, 1.25, 1.5, 2],
         };
 
         player = videojs('video_player', videoOptions);
-        
+
         player.ready(() => {
           updateStatus('Player initialized successfully');
           eventMonitor.logEvent('ready', 'VideoJS player initialized');
-          
+
           // Log debug info to event monitor
-          eventMonitor.logEvent('debug', `videojsIma available: ${typeof window.videojsIma !== 'undefined'}`, 'dai');
-          eventMonitor.logEvent('debug', `player.imaDai available: ${typeof player.imaDai === 'function'}`, 'dai');
-          
+          eventMonitor.logEvent(
+            'debug',
+            `videojsIma available: ${typeof window.videojsIma !== 'undefined'}`,
+            'dai'
+          );
+          eventMonitor.logEvent(
+            'debug',
+            `player.imaDai available: ${typeof player.imaDai === 'function'}`,
+            'dai'
+          );
+
           // Set up comprehensive event monitoring
           eventMonitor.setupPlayerMonitoring(player);
           eventMonitor.setupNewRelicMonitoring();
 
+          // set up new relic videojs tracker
+          const tracker = new VideojsTracker(player,
+            { info: NREUM.info }
+          );
 
-         // set up new relic videojs tracker
-         const tracker = new VideojsTracker(player);
-
-         console.log("Tracker", tracker);
-
+          console.log('Tracker', tracker);
         });
 
         // Add error handling
@@ -251,8 +269,12 @@
 
       // Setup StreamManager events based on working example
       function setupStreamManagerEvents(streamManager) {
-        eventMonitor.logEvent('stream-setup', 'Setting up StreamManager events', 'dai');
-        
+        eventMonitor.logEvent(
+          'stream-setup',
+          'Setting up StreamManager events',
+          'dai'
+        );
+
         const events = [
           google.ima.dai.api.StreamEvent.Type.LOADED,
           google.ima.dai.api.StreamEvent.Type.AD_BREAK_STARTED,
@@ -270,22 +292,27 @@
           google.ima.dai.api.StreamEvent.Type.SKIPPED,
           google.ima.dai.api.StreamEvent.Type.COMPLETE,
           google.ima.dai.api.StreamEvent.Type.PAUSED,
-          google.ima.dai.api.StreamEvent.Type.RESUMED
+          google.ima.dai.api.StreamEvent.Type.RESUMED,
         ];
 
         for (let index = 0; index < events.length; index++) {
-          streamManager.addEventListener(
-            events[index],
-            onDaiAdEvent
-          );
+          streamManager.addEventListener(events[index], onDaiAdEvent);
         }
-        
-        eventMonitor.logEvent('stream-events', `Registered ${events.length} DAI stream events`, 'dai');
+
+        eventMonitor.logEvent(
+          'stream-events',
+          `Registered ${events.length} DAI stream events`,
+          'dai'
+        );
       }
 
       // Handle DAI ad events
       function onDaiAdEvent(event) {
-        eventMonitor.logEvent('dai-event', `DAI ad event: ${event.type}`, 'dai');
+        eventMonitor.logEvent(
+          'dai-event',
+          `DAI ad event: ${event.type}`,
+          'dai'
+        );
       }
 
       function loadVodStream() {
@@ -296,53 +323,93 @@
 
         try {
           updateStatus('Loading VOD stream with DAI...');
-          eventMonitor.logEvent('vod-request', 'Requesting VOD stream with DAI', 'dai');
-          
+          eventMonitor.logEvent(
+            'vod-request',
+            'Requesting VOD stream with DAI',
+            'dai'
+          );
+
           // Create VOD stream using the correct window.videojsIma namespace (from working example)
           const streamFormat = 'hls'; // Currently plugin only supports HLS streams
           const cmsId = '2548831';
           const videoId = 'tears-of-steel';
-          
+
           let vodStream;
           if (window.videojsIma && window.videojsIma.VodStream) {
-            vodStream = new window.videojsIma.VodStream(streamFormat, cmsId, videoId);
-            eventMonitor.logEvent('vod-debug', 'Created VodStream using window.videojsIma.VodStream', 'dai');
+            vodStream = new window.videojsIma.VodStream(
+              streamFormat,
+              cmsId,
+              videoId
+            );
+            eventMonitor.logEvent(
+              'vod-debug',
+              'Created VodStream using window.videojsIma.VodStream',
+              'dai'
+            );
           } else {
             // Fallback to our custom class
             vodStream = new window.VodStream(streamFormat, cmsId, videoId);
-            eventMonitor.logEvent('vod-debug', 'Created VodStream using fallback class', 'dai');
+            eventMonitor.logEvent(
+              'vod-debug',
+              'Created VodStream using fallback class',
+              'dai'
+            );
           }
-          
+
           const imaOptions = {
-            fallbackStreamUrl: 'https://storage.googleapis.com/testtopbox-public/video_content/bbb/master.m3u8'
+            fallbackStreamUrl:
+              'https://storage.googleapis.com/testtopbox-public/video_content/bbb/master.m3u8',
           };
 
-          eventMonitor.logEvent('vod-config', `VOD Stream config: cmsId=${cmsId}, videoId=${videoId}`, 'dai');
-          
+          eventMonitor.logEvent(
+            'vod-config',
+            `VOD Stream config: cmsId=${cmsId}, videoId=${videoId}`,
+            'dai'
+          );
+
           // Setup stream manager event listener
           player.on('stream-manager', (response) => {
-            eventMonitor.logEvent('stream-manager', 'StreamManager loaded callback', 'dai');
+            eventMonitor.logEvent(
+              'stream-manager',
+              'StreamManager loaded callback',
+              'dai'
+            );
             if (response.StreamManager) {
               setupStreamManagerEvents(response.StreamManager);
             }
           });
-          
+
           // Check if imaDai method exists and call it
           if (typeof player.imaDai === 'function') {
             player.imaDai(vodStream, imaOptions);
-            eventMonitor.logEvent('vod-method', 'Called player.imaDai method successfully', 'dai');
+            eventMonitor.logEvent(
+              'vod-method',
+              'Called player.imaDai method successfully',
+              'dai'
+            );
           } else {
-            eventMonitor.logEvent('vod-error', 'player.imaDai method not available', 'error');
+            eventMonitor.logEvent(
+              'vod-error',
+              'player.imaDai method not available',
+              'error'
+            );
             throw new Error('imaDai method not available on player');
           }
-          
+
           updateStatus('VOD stream with DAI configured');
-          eventMonitor.logEvent('vod-loaded', 'VOD stream with DAI configured successfully', 'dai');
-          
+          eventMonitor.logEvent(
+            'vod-loaded',
+            'VOD stream with DAI configured successfully',
+            'dai'
+          );
         } catch (error) {
           console.error('Error loading VOD stream:', error);
           updateStatus('Error loading VOD stream: ' + error.message);
-          eventMonitor.logEvent('vod-error', `Error loading VOD stream: ${error.message}`, 'error');
+          eventMonitor.logEvent(
+            'vod-error',
+            `Error loading VOD stream: ${error.message}`,
+            'error'
+          );
         }
       }
 
@@ -354,31 +421,55 @@
 
         try {
           updateStatus('Loading Live stream with DAI...');
-          eventMonitor.logEvent('live-request', 'Requesting Live stream with DAI', 'dai');
-          
+          eventMonitor.logEvent(
+            'live-request',
+            'Requesting Live stream with DAI',
+            'dai'
+          );
+
           // Create Live stream using the correct window.videojsIma namespace (from working example)
           const streamFormat = 'hls'; // Currently plugin only supports HLS streams
           const assetKey = 'sN_IYUG8STe1ZzhIIE_ksA';
-          
+
           let liveStream;
           if (window.videojsIma && window.videojsIma.LiveStream) {
-            liveStream = new window.videojsIma.LiveStream(streamFormat, assetKey);
-            eventMonitor.logEvent('live-debug', 'Created LiveStream using window.videojsIma.LiveStream', 'dai');
+            liveStream = new window.videojsIma.LiveStream(
+              streamFormat,
+              assetKey
+            );
+            eventMonitor.logEvent(
+              'live-debug',
+              'Created LiveStream using window.videojsIma.LiveStream',
+              'dai'
+            );
           } else {
             // Fallback to our custom class
             liveStream = new window.LiveStream(streamFormat, assetKey);
-            eventMonitor.logEvent('live-debug', 'Created LiveStream using fallback class', 'dai');
+            eventMonitor.logEvent(
+              'live-debug',
+              'Created LiveStream using fallback class',
+              'dai'
+            );
           }
-          
+
           const imaOptions = {
-            fallbackStreamUrl: 'https://storage.googleapis.com/testtopbox-public/video_content/bbb/master.m3u8'
+            fallbackStreamUrl:
+              'https://storage.googleapis.com/testtopbox-public/video_content/bbb/master.m3u8',
           };
 
-          eventMonitor.logEvent('live-config', `Live Stream config: assetKey=${assetKey}`, 'dai');
+          eventMonitor.logEvent(
+            'live-config',
+            `Live Stream config: assetKey=${assetKey}`,
+            'dai'
+          );
 
           // Setup stream manager event listener
           player.on('stream-manager', (response) => {
-            eventMonitor.logEvent('stream-manager', 'StreamManager loaded callback', 'dai');
+            eventMonitor.logEvent(
+              'stream-manager',
+              'StreamManager loaded callback',
+              'dai'
+            );
             if (response.StreamManager) {
               setupStreamManagerEvents(response.StreamManager);
             }
@@ -387,19 +478,34 @@
           // Check if imaDai method exists and call it
           if (typeof player.imaDai === 'function') {
             player.imaDai(liveStream, imaOptions);
-            eventMonitor.logEvent('live-method', 'Called player.imaDai method successfully', 'dai');
+            eventMonitor.logEvent(
+              'live-method',
+              'Called player.imaDai method successfully',
+              'dai'
+            );
           } else {
-            eventMonitor.logEvent('live-error', 'player.imaDai method not available', 'error');
+            eventMonitor.logEvent(
+              'live-error',
+              'player.imaDai method not available',
+              'error'
+            );
             throw new Error('imaDai method not available on player');
           }
-          
+
           updateStatus('Live stream with DAI configured');
-          eventMonitor.logEvent('live-loaded', 'Live stream with DAI configured successfully', 'dai');
-          
+          eventMonitor.logEvent(
+            'live-loaded',
+            'Live stream with DAI configured successfully',
+            'dai'
+          );
         } catch (error) {
           console.error('Error loading Live stream:', error);
           updateStatus('Error loading Live stream: ' + error.message);
-          eventMonitor.logEvent('live-error', `Error loading Live stream: ${error.message}`, 'error');
+          eventMonitor.logEvent(
+            'live-error',
+            `Error loading Live stream: ${error.message}`,
+            'error'
+          );
         }
       }
 
@@ -410,10 +516,10 @@
             eventMonitor.logEvent('reset', 'Player reset initiated');
             eventMonitor.clearLog();
           }
-          
+
           player.reset();
           updateStatus('Player reset complete');
-          
+
           if (eventMonitor) {
             eventMonitor.logEvent('reset-complete', 'Player reset completed');
           }

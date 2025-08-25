@@ -145,7 +145,7 @@ export default class DaiAdsTracker extends VideojsAdsTracker {
   onStreamLoaded(event) {
     this.streamData = this.extractStreamData(event);
     nrvideo.Log.debug('DaiAdsTracker: Stream loaded', this.streamData);
-    this.sendRequest({ streamData: this.streamData });
+    this.sendRequest();
   }
 
   onStreamInitialized(event) {

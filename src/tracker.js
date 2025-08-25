@@ -15,7 +15,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.isContentEnd = false;
     this.imaAdCuePoints = '';
     this.daiInitialized = false;
-    nrvideo.Core.addTracker(this);
+    nrvideo.Core.addTracker(this, options);
   }
 
   getTech() {
@@ -111,8 +111,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     return this.player.muted();
   }
 
-  getBitrate() {
-    let tech = this.getTech();
+  getBitrate() {    let tech = this.getTech();
     return tech?.tech?.stats?.bandwidth;
   }
 
