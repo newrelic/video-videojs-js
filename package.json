@@ -25,7 +25,7 @@
     "Bharat Saraswat",
     "Malay Chandan"
   ],
-  "license": "MIT",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@babel/core": "^7.24.5",
     "@babel/plugin-transform-modules-commonjs": "^7.24.1",
