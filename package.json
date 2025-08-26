@@ -37,7 +37,7 @@
     "webpack-obfuscator": "^3.5.1"
   },
   "dependencies": {
-    "@newrelic/video-core": "^3.1.0"
+    "@newrelic/video-core": "^4.0.0"
   },
   "files": [
     "THIRD_PARTY_NOTICES.md",

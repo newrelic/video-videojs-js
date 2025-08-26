@@ -23,7 +23,6 @@
     />
 
     <!-- NEW RELIC TRACKING -->
-    <script src="../../../video-core-js/samples/agent.js"></script>
     <script src="../../dist/umd/newrelic-video-videojs.min.js"></script>
 
     <style>
@@ -242,12 +241,18 @@
           eventMonitor.setupPlayerMonitoring(player);
           eventMonitor.setupNewRelicMonitoring();
 
-          // set up new relic videojs tracker
-          const tracker = new VideojsTracker(player,
-            { info: NREUM.info }
-          );
 
-          console.log('Tracker', tracker);
+          /* Get the info object from the video agent onboarding */
+          options = {
+            info: {
+              beacon: 'xxxxxxxxxxx',
+              licenseKey: 'xxxxxxxxxxx',
+              applicationID: 'xxxxxxxxxxxx',
+            },
+          };
+
+          // set up new relic videojs tracker
+          const tracker = new VideojsTracker(player, options);
         });
 
         // Add error handling

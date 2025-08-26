@@ -46,17 +46,43 @@ $ yarn add @newrelic/video-videojs
 ## Instantiating the Videojs Tracker
 
 
+> [!NOTE]
+> **Attention:**  
+> This version uses the latest **standalone** version of the Videojs Tracker, In order to initialize it you need to do the following:
+
+Steps to get NREUM config
+ - Create a New Relic account and obtain your license key.
+ - Install the New Relic Streaming video agent in your application.
+ - Configure the video agent with your license key and application ID.
+
+The NREUM config looks like this:
 
 ```javascript
+info = {
+  beacon: "staging-bam-cell.nr-data.net",
+  licenseKey: "NRBR-3xxxxxxxxxxxxx",
+  applicationID: "2521xxxx",
+};
+```
 
-import VideojsTracker from "@newrelic/video-videojs"; 
+```javascript
+import VideojsTracker from "@newrelic/video-videojs";
 
-// Add a VideojsTracker
-player.version = videojs.VERSION
-const tracker = new VideojsTracker(player);
+// pass player version
+player.version = videojs.VERSION;
+
+// create options 
+const options = {
+  info: info
+}
+
+// initialize VideojsTracker with player and options
+const tracker = new VideojsTracker(player, options);
+
+// ================================================= //
 
 //For setting custom attributes const tracker
-const tracker = new VideojsjsTracker(player, {
+const tracker = new VideojsTracker(player, {
   customData: {
     contentTitle: 'Override Existing Title',
     customPlayerName: 'myGreatPlayer',
@@ -67,17 +93,20 @@ const tracker = new VideojsjsTracker(player, {
 // For setting userId
 tracker.setUserId('userId');
 
+// set tracker interval, between 1s - 5mins
+tracker.setHarvestInterval(1000)
+
 // For Sending custom Action with Attributes
+tracker.sendCustom('CustomAction', { data: "custom-test" })
 
-const tracker = new nrvideo.VideojsTracker(player);
-
-nrvideo.Core.addTracker(tracker);
-
-tracker.sendCustom('CUSTOM_ACTION', 'state time', {
-  test1: 'value1',
-  test2: 'value2',
-});
 ```
+
+## Support for SSAI 
+
+> [!NOTE]
+> **Attention:**  
+> This version supports tracking for SSAI (Server-Side Ad Insertion), checkout examples in [/samples/dai/index.html](./samples/dai/index.html)
+
 
 ## Data Model
 
