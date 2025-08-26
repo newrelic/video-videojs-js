@@ -58,10 +58,13 @@ Steps to get NREUM config
 The NREUM config looks like this:
 
 ```javascript
-info = {
-  beacon: "staging-bam-cell.nr-data.net",
-  licenseKey: "NRBR-3xxxxxxxxxxxxx",
-  applicationID: "2521xxxx",
+/* Get the info object from the video agent onboarding */
+options = {
+  info: {
+    beacon: 'xxxxxxxxxxx',
+    licenseKey: 'xxxxxxxxxxx',
+    applicationID: 'xxxxxxxxxxxx',
+  },
 };
 ```
 
@@ -70,11 +73,6 @@ import VideojsTracker from "@newrelic/video-videojs";
 
 // pass player version
 player.version = videojs.VERSION;
-
-// create options 
-const options = {
-  info: info
-}
 
 // initialize VideojsTracker with player and options
 const tracker = new VideojsTracker(player, options);
