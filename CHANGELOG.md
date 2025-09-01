@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## [4.0.0] - 2025-08-26
+
+### Major Updates:
+ - Upgraded `@newrelic/video-core` dependency to version `4.0.0`.
+ - Introduced support for SSAI (Server-Side Ad Insertion) Google DAI.
+ - Minor fixes to webpack configuration
+
 ## [3.1.0] - 2025-05-27
 
 ### Enhancements

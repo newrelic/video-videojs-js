@@ -1,20 +1,20 @@
 {
-  "lastUpdated": "Tue May 27 2025 10:43:59 GMT+0530 (India Standard Time)",
+  "lastUpdated": "Tue Aug 26 2025 16:39:08 GMT+0530 (India Standard Time)",
   "projectName": "newrelic-videojs",
   "projectUrl": "https://github.com/newrelic/video-videojs-js.git",
   "includeOptDeps": true,
   "optionalDependencies": {},
   "includeDev": true,
   "dependencies": {
-    "@newrelic/video-core@3.1.0": {
+    "@newrelic/video-core@3.1.1": {
       "name": "@newrelic/video-core",
-      "version": "3.1.0",
-      "range": "^3.1.0",
-      "licenses": "MIT",
+      "version": "3.1.1",
+      "range": "^4.0.0",
+      "licenses": "Apache-2.0",
       "repoUrl": "https://github.com/newrelic/video-core-js",
-      "versionedRepoUrl": "https://github.com/newrelic/video-core-js/tree/v3.1.0",
-      "licenseFile": "node_modules/@newrelic/video-core/LICENSE.txt",
-      "licenseUrl": "https://github.com/newrelic/video-core-js/blob/v3.1.0/LICENSE.txt",
+      "versionedRepoUrl": "https://github.com/newrelic/video-core-js/tree/v3.1.1",
+      "licenseFile": "node_modules/@newrelic/video-core/LICENSE",
+      "licenseUrl": "https://github.com/newrelic/video-core-js/blob/v3.1.1/LICENSE",
       "licenseTextSource": "file",
       "publisher": "Jordi Aguilar"
     }
@@ -119,18 +119,6 @@
       "licenseFile": "node_modules/webpack-cli/LICENSE",
       "licenseUrl": "https://github.com/webpack/webpack-cli/blob/v4.10.0/LICENSE",
       "licenseTextSource": "file"
-    },
-    "webpack-obfuscator@3.5.1": {
-      "name": "webpack-obfuscator",
-      "version": "3.5.1",
-      "range": "^3.5.1",
-      "licenses": "BSD-2-Clause",
-      "repoUrl": "https://github.com/javascript-obfuscator/webpack-obfuscator",
-      "versionedRepoUrl": "https://github.com/javascript-obfuscator/webpack-obfuscator/tree/v3.5.1",
-      "licenseFile": "node_modules/webpack-obfuscator/LICENSE.BSD",
-      "licenseUrl": "https://github.com/javascript-obfuscator/webpack-obfuscator/blob/v3.5.1/LICENSE.BSD",
-      "licenseTextSource": "file",
-      "publisher": "Timofey Kachalov"
     },
     "webpack@5.99.9": {
       "name": "webpack",
