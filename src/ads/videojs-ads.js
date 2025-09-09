@@ -1,7 +1,25 @@
 import nrvideo from '@newrelic/video-core'
 import pkg from '../../package.json'
+import ContribHlsTech from '../techs/contrib-hls';
+import HlsJsTech from '../techs/hls-js';
+import ShakaTech from '../techs/shaka';
 
 export default class VideojsAdsTracker extends nrvideo.VideoTracker {
+
+  getTech() {
+      let tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+  
+      if (tech) {
+        if (ContribHlsTech.isUsing(tech)) {
+          return new ContribHlsTech(tech);
+        } else if (HlsJsTech.isUsing(tech)) {
+          return new HlsJsTech(tech);
+        } else if (ShakaTech.isUsing(tech)) {
+          return new ShakaTech(tech);
+        }
+      }
+    }
+  
   getTrackerName () {
     return 'videojs-ads'
   }
