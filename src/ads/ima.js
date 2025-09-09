@@ -94,6 +94,33 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
     return 'ima';
   }
 
+  getBitrate() {
+    const tech = this.getTech()
+    return tech?.tech?.stats?.bandwidth;
+  }
+
+  getWebkitBitrate() {
+    const adVideoElement = this.getAdVideoElement();
+    if (adVideoElement && adVideoElement.webkitVideoDecodedByteCount) {
+      let bitrate;
+      if (this._lastAdWebkitBitrate > 0) {
+        const current = adVideoElement.webkitVideoDecodedByteCount;
+        const delta = current - this._lastAdWebkitBitrate;
+        const seconds = this.getHeartbeat() / 1000;
+        bitrate = Math.round((delta / seconds) * 8);
+      }
+      
+      this._lastAdWebkitBitrate = adVideoElement.webkitVideoDecodedByteCount;
+      return bitrate || null;
+    }
+    return null;
+  }
+
+  getRenditionBitrate() {
+    this.lastAdData = this.getAdData();
+    return this.lastAdData.renditionBitrate;
+  }
+
   registerListeners() {
     // Shortcut events
     let e = google.ima.AdEvent.Type;
@@ -178,6 +205,7 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
 
   onStart(e) {
     this.lastAdData = this.getAdData();
+    this._lastAdWebkitBitrate = 0;
     this.sendStart();
   }
 
@@ -236,6 +264,7 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
             mediaUrl: currentAd.getMediaUrl(),
             title: currentAd.getTitle(),
             podInfo: currentAd.getAdPodInfo()?.data,
+            renditionBitrate: currentAd.getVastMediaBitrate(),
             // Add other properties as needed
           };
         }
@@ -243,6 +272,18 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
       return null;
     } catch (err) {
       return null;
+    }
+  }
+
+  getAdVideoElement() {
+    if (this.player.ima && this.player.ima.controller && this.player.ima.controller.adUi) {
+      const adContainerDiv = this.player.ima.controller.adUi.adContainerDiv;
+      if (adContainerDiv) {
+        const adVideoElement = adContainerDiv.querySelector('video');
+        if (adVideoElement) {
+          return adVideoElement;
+        }
+      }
     }
   }
 }
