@@ -271,13 +271,11 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
   }
 
   getAdVideoElement() {
-    if (this.player.ima && this.player.ima.controller && this.player.ima.controller.adUi) {
-      const adContainerDiv = this.player.ima.controller.adUi.adContainerDiv;
-      if (adContainerDiv) {
-        const adVideoElement = adContainerDiv.querySelector('video');
-        if (adVideoElement) {
-          return adVideoElement;
-        }
+    const adContainerDiv = this.player?.ima?.controller?.adUi?.adContainerDiv;
+    if (adContainerDiv) {
+      const adVideoElement = adContainerDiv.querySelector('video');
+      if (adVideoElement) {
+        return adVideoElement;
       }
     }
   }
