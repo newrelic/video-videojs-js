@@ -94,11 +94,6 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
     return 'ima';
   }
 
-  getBitrate() {
-    const tech = this.getTech()
-    return tech?.tech?.stats?.bandwidth;
-  }
-
   getWebkitBitrate() {
     const adVideoElement = this.getAdVideoElement();
     if (adVideoElement && adVideoElement.webkitVideoDecodedByteCount) {
@@ -118,7 +113,7 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
 
   getRenditionBitrate() {
     this.lastAdData = this.getAdData();
-    return this.lastAdData.renditionBitrate;
+    return this.lastAdData?.renditionBitrate;
   }
 
   registerListeners() {
