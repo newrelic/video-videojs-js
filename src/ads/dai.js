@@ -449,11 +449,13 @@ export default class DaiAdsTracker extends VideojsAdsTracker {
 
   getBitrate() {
     const tech = this.getTech()
-    return tech?.tech?.stats?.bandwidth;
+    if (tech && tech.tech && tech.tech.stats) {
+      return tech.tech.stats.bandwidth;
+    }
   }
 
   getRenditionBitrate() {
-    let tech = this.getTech();
+    const tech = this.getTech();
     if (tech && tech.getRenditionBitrate) {
       return tech.getRenditionBitrate();
     }
