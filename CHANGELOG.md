@@ -3,7 +3,7 @@
 ## [4.0.1] - 2025-09-11
 
 ### Add
- - Added methods for `Ad Bitrate` and  `Ad Rendition Botrate` in ima.js and dai.js
+ - Added methods for `Ad Bitrate` and  `Ad Rendition Bitrate` in ima.js and dai.js
 
 ## [4.0.0] - 2025-08-26
 
