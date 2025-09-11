@@ -106,14 +106,15 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
       }
       
       this._lastAdWebkitBitrate = adVideoElement.webkitVideoDecodedByteCount;
-      return bitrate || null;
+      return bitrate ?? null;
     }
     return null;
   }
 
   getRenditionBitrate() {
-    this.lastAdData = this.getAdData();
-    return this.lastAdData?.renditionBitrate;
+    if (this.lastAdData) {
+      return this.lastAdData.renditionBitrate;
+    }
   }
 
   registerListeners() {
@@ -271,11 +272,13 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
   }
 
   getAdVideoElement() {
-    const adContainerDiv = this.player?.ima?.controller?.adUi?.adContainerDiv;
-    if (adContainerDiv) {
-      const adVideoElement = adContainerDiv.querySelector('video');
-      if (adVideoElement) {
-        return adVideoElement;
+    if (this.player.ima && this.player.ima.controller && this.player.ima.controller.adUi) {
+      const adContainerDiv = this.player.ima.controller.adUi.adContainerDiv;
+      if (adContainerDiv) {
+        const adVideoElement = adContainerDiv.querySelector('video');
+        if (adVideoElement) {
+          return adVideoElement;
+        }
       }
     }
   }

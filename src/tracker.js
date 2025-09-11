@@ -112,7 +112,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   getBitrate() {    
-    let tech = this.getTech();
+    const tech = this.getTech();
     return tech?.tech?.stats?.bandwidth;
   }
 
