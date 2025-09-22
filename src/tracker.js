@@ -173,29 +173,45 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
       'dispose',
     ]);
 
-    this.player.on('loadstart', this.onDownload.bind(this));
-    this.player.on('loadeddata', this.onDownload.bind(this));
-    this.player.on('loadedmetadata', this.onDownload.bind(this));
-    this.player.on('adsready', this.onAdsready.bind(this));
-    this.player.on('adstart', this.onAdStart.bind(this));
-    this.player.on('adend', this.onAdEnd.bind(this));
-    this.player.on('play', this.onPlay.bind(this));
-    this.player.on('pause', this.onPause.bind(this));
-    this.player.on('playing', this.onPlaying.bind(this));
-    this.player.on('abort', this.onAbort.bind(this));
-    this.player.on('ended', this.onEnded.bind(this));
-    this.player.on('dispose', this.onDispose.bind(this));
-    this.player.on('seeking', this.onSeeking.bind(this));
-    this.player.on('seeked', this.onSeeked.bind(this));
-    this.player.on('error', this.onError.bind(this));
-    this.player.on('waiting', this.onWaiting.bind(this));
-    this.player.on('timeupdate', this.onTimeupdate.bind(this));
-    this.player.on(
-      'ads-allpods-completed',
-      this.OnAdsAllpodsCompleted.bind(this)
-    );
+    // BIND LISTENER METHODS
+    this.onDownload = this.onDownload.bind(this);
+    this.onAdsready = this.onAdsready.bind(this);
+    this.onAdStart = this.onAdStart.bind(this);
+    this.onAdEnd = this.onAdEnd.bind(this);
+    this.onPlay = this.onPlay.bind(this);
+    this.onPause = this.onPause.bind(this);
+    this.onPlaying = this.onPlaying.bind(this);
+    this.onAbort = this.onAbort.bind(this);
+    this.onEnded = this.onEnded.bind(this);
+    this.onDispose = this.onDispose.bind(this);
+    this.onSeeking = this.onSeeking.bind(this);
+    this.onSeeked = this.onSeeked.bind(this);
+    this.onError = this.onError.bind(this);
+    this.onWaiting = this.onWaiting.bind(this);
+    this.onTimeupdate = this.onTimeupdate.bind(this);
+    this.OnAdsAllpodsCompleted = this.OnAdsAllpodsCompleted.bind(this);
+    this.onStreamManager = this.onStreamManager.bind(this);
 
-    this.player.on('stream-manager', this.onStreamManager.bind(this));
+    this.player.on('loadstart', this.onDownload);
+    this.player.on('loadeddata', this.onDownload);
+    this.player.on('loadedmetadata', this.onDownload);
+    this.player.on('adsready', this.onAdsready);
+    this.player.on('adstart', this.onAdStart);
+    this.player.on('adend', this.onAdEnd);
+    this.player.on('play', this.onPlay);
+    this.player.on('pause', this.onPause);
+    this.player.on('playing', this.onPlaying);
+    this.player.on('abort', this.onAbort);
+    this.player.on('ended', this.onEnded);
+    this.player.on('dispose', this.onDispose);
+    this.player.on('seeking', this.onSeeking);
+    this.player.on('seeked', this.onSeeked);
+    this.player.on('error', this.onError);
+    this.player.on('waiting', this.onWaiting);
+    this.player.on('timeupdate', this.onTimeupdate);
+    this.player.on('ads-allpods-completed', this.OnAdsAllpodsCompleted);
+
+    this.player.on('stream-manager', this.onStreamManager);
   }
 
   unregisterListeners() {
@@ -216,12 +232,9 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.off('error', this.onError);
     this.player.off('waiting', this.onWaiting);
     this.player.off('timeupdate', this.onTimeupdate);
-    this.player.off(
-      'ads-allpods-completed',
-      this.OnAdsAllpodsCompleted.bind(this)
-    );
+    this.player.off('ads-allpods-completed', this.OnAdsAllpodsCompleted);
 
-    this.player.off('stream-manager', this.onStreamManager.bind(this));
+    this.player.off('stream-manager', this.onStreamManager);
   }
 
   onDownload(e) {
