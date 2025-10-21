@@ -111,9 +111,175 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     return this.player.muted();
   }
 
-  getBitrate() {    
-    const tech = this.getTech();
-    return tech?.tech?.stats?.bandwidth;
+  getBitrate() {
+    let videoBitrate = 0;
+    let audioBitrate = 0;
+    let totalBitrate = 0;
+
+    if (this.player) {
+      const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+
+      if (tech) {
+        let playlists, currentMedia;
+
+        // Method 1: Try VHS (Video HTTP Streaming) - most common for HLS/DASH
+        if (tech.vhs && tech.vhs.playlists && tech.vhs.playlists.media) {
+          playlists = tech.vhs.playlists;
+          currentMedia = tech.vhs.playlists.media();
+        } else if (tech.hls && tech.hls.playlists && tech.hls.playlists.media) {
+          playlists = tech.hls.playlists;
+          currentMedia = tech.hls.playlists.media();
+        }
+
+        if (currentMedia && currentMedia.attributes) {
+          if (currentMedia.attributes.BANDWIDTH) {
+            videoBitrate = currentMedia.attributes.BANDWIDTH;
+          }
+
+          // Get audio bitrate if available
+          const audioTracks = this.player.audioTracks();
+          let activeAudioTrack;
+
+          if (audioTracks && audioTracks.length > 0) {
+            for (let i = 0; i < audioTracks.length; i++) {
+              if (audioTracks[i].enabled) {
+                activeAudioTrack = audioTracks[i];
+                break;
+              }
+            }
+          }
+
+          if (activeAudioTrack && currentMedia.attributes.AUDIO) {
+            let masterPlaylist;
+            if (playlists) {
+              masterPlaylist = playlists.master || playlists.main;
+            }
+
+            if (
+              masterPlaylist &&
+              masterPlaylist.mediaGroups &&
+              masterPlaylist.mediaGroups.AUDIO
+            ) {
+              const audioGroup =
+                masterPlaylist.mediaGroups.AUDIO[currentMedia.attributes.AUDIO];
+              const audioMediaInfo =
+                audioGroup && audioGroup[activeAudioTrack.id];
+
+              if (
+                audioMediaInfo &&
+                audioMediaInfo.playlists &&
+                audioMediaInfo.playlists[0]
+              ) {
+                const audioPlaylist = audioMediaInfo.playlists[0].attributes;
+                if (audioPlaylist && audioPlaylist.BANDWIDTH) {
+                  audioBitrate = audioPlaylist.BANDWIDTH;
+                }
+              }
+            }
+          }
+
+          totalBitrate = videoBitrate + audioBitrate;
+          console.log(
+            'VHS Bitrate - Video:',
+            videoBitrate,
+            'Audio:',
+            audioBitrate,
+            'Total:',
+            totalBitrate
+          );
+          return totalBitrate; // Return in bps
+        }
+
+        // Method 2: Try Shaka Player
+        const shakaPlayer =
+          tech.shakaPlayer_ || tech.shaka_ || tech.shakaPlayer;
+        if (shakaPlayer && typeof shakaPlayer.getStats === 'function') {
+          const stats = shakaPlayer.getStats();
+          if (stats && stats.streamBandwidth) {
+            console.log('bitrate shaka', stats.streamBandwidth);
+            return stats.streamBandwidth;
+          }
+        }
+
+        // Method 3: Try HLS.js
+        const hlsJs = tech.hls_;
+        if (hlsJs && hlsJs.levels && hlsJs.currentLevel >= 0) {
+          const currentLevel = hlsJs.levels[hlsJs.currentLevel];
+          if (currentLevel && currentLevel.bitrate) {
+            console.log('hls bitrate', currentLevel.bitrate);
+            return currentLevel.bitrate;
+          }
+        }
+      }
+
+      // Method 4: Try DASH.js
+      let dashPlayer;
+      if (this.player.mediaPlayer) {
+        dashPlayer = this.player.mediaPlayer;
+      } else if (this.player.dash && this.player.dash.mediaPlayer) {
+        dashPlayer = this.player.dash.mediaPlayer;
+      }
+
+      if (
+        dashPlayer &&
+        typeof dashPlayer.getQualityFor === 'function' &&
+        typeof dashPlayer.getBitrateInfoListFor === 'function'
+      ) {
+        // Get audio bitrate
+        const audioQuality = dashPlayer.getQualityFor('audio');
+        const audioBitrateList = dashPlayer.getBitrateInfoListFor('audio');
+        if (
+          audioQuality !== undefined &&
+          audioBitrateList &&
+          audioBitrateList[audioQuality] &&
+          audioBitrateList[audioQuality].bitrate
+        ) {
+          audioBitrate = audioBitrateList[audioQuality].bitrate;
+        }
+
+        // Get video bitrate
+        const videoQuality = dashPlayer.getQualityFor('video');
+        const videoBitrateList = dashPlayer.getBitrateInfoListFor('video');
+        if (
+          videoQuality !== undefined &&
+          videoBitrateList &&
+          videoBitrateList[videoQuality] &&
+          videoBitrateList[videoQuality].bitrate
+        ) {
+          videoBitrate = videoBitrateList[videoQuality].bitrate;
+        } else {
+          videoBitrate = videoBitrate || 0;
+        }
+
+        totalBitrate = audioBitrate + videoBitrate;
+        console.log('totalBitrate', totalBitrate);
+        return totalBitrate;
+      }
+    }
+
+    // Fallback: Try tech-specific implementations from your wrappers
+    const techWrapper = this.getTech();
+    if (techWrapper) {
+      if (
+        techWrapper.getBitrate &&
+        typeof techWrapper.getBitrate === 'function'
+      ) {
+        console.log('fallback', techWrapper.getBitrate());
+        return techWrapper.getBitrate();
+      }
+
+      if (
+        techWrapper.tech &&
+        techWrapper.tech.stats &&
+        techWrapper.tech.stats.bandwidth
+      ) {
+        console.log('fallback', techWrapper.tech.stats.bandwidth);
+        return techWrapper.tech.stats.bandwidth;
+      }
+    }
+
+    console.log('null', null);
+    return null;
   }
 
   getRenditionName() {

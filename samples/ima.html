@@ -39,26 +39,25 @@
       width="480px"
       controls
     >
-      <source
-        src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-      />
+      <source src="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd" />
     </video>
     <script>
       //PLAYER
       var player = videojs('myVideo');
 
       /* Get the info object from the video agent onboarding */
-      options = {
-        info: {
-          beacon: 'xxxxxxxxxxx',
-          licenseKey: 'xxxxxxxxxxx',
-          applicationID: 'xxxxxxxxxxxx',
-        },
-      };
 
-      // set up new relic videojs tracker
-      const tracker = new VideojsTracker(player, options);
-      
+      // options = {
+      //   info: {
+      //     beacon: 'xxxxxxxxxxx',
+      //     licenseKey: 'xxxxxxxxxxx',
+      //     applicationID: 'xxxxxxxxxxxx',
+      //   },
+      // };
+
+      // // set up new relic videojs tracker
+      // const tracker = new VideojsTracker(player, options);
+
       //NEWRELIC
 
       // IMA3
