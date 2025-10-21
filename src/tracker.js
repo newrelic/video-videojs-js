@@ -179,14 +179,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
           }
 
           totalBitrate = videoBitrate + audioBitrate;
-          console.log(
-            'VHS Bitrate - Video:',
-            videoBitrate,
-            'Audio:',
-            audioBitrate,
-            'Total:',
-            totalBitrate
-          );
+
           return totalBitrate; // Return in bps
         }
 
@@ -196,7 +189,6 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         if (shakaPlayer && typeof shakaPlayer.getStats === 'function') {
           const stats = shakaPlayer.getStats();
           if (stats && stats.streamBandwidth) {
-            console.log('bitrate shaka', stats.streamBandwidth);
             return stats.streamBandwidth;
           }
         }
@@ -206,7 +198,6 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         if (hlsJs && hlsJs.levels && hlsJs.currentLevel >= 0) {
           const currentLevel = hlsJs.levels[hlsJs.currentLevel];
           if (currentLevel && currentLevel.bitrate) {
-            console.log('hls bitrate', currentLevel.bitrate);
             return currentLevel.bitrate;
           }
         }
@@ -252,7 +243,6 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         }
 
         totalBitrate = audioBitrate + videoBitrate;
-        console.log('totalBitrate', totalBitrate);
         return totalBitrate;
       }
     }
@@ -264,7 +254,6 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         techWrapper.getBitrate &&
         typeof techWrapper.getBitrate === 'function'
       ) {
-        console.log('fallback', techWrapper.getBitrate());
         return techWrapper.getBitrate();
       }
 
@@ -273,12 +262,10 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         techWrapper.tech.stats &&
         techWrapper.tech.stats.bandwidth
       ) {
-        console.log('fallback', techWrapper.tech.stats.bandwidth);
         return techWrapper.tech.stats.bandwidth;
       }
     }
 
-    console.log('null', null);
     return null;
   }
 

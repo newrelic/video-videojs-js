@@ -47,18 +47,16 @@
 
       /* Get the info object from the video agent onboarding */
 
-      // options = {
-      //   info: {
-      //     beacon: 'xxxxxxxxxxx',
-      //     licenseKey: 'xxxxxxxxxxx',
-      //     applicationID: 'xxxxxxxxxxxx',
-      //   },
-      // };
+      options = {
+        info: {
+          beacon: 'xxxxxxxxxxx',
+          licenseKey: 'xxxxxxxxxxx',
+          applicationID: 'xxxxxxxxxxxx',
+        },
+      };
 
       // // set up new relic videojs tracker
-      // const tracker = new VideojsTracker(player, options);
-
-      //NEWRELIC
+      const tracker = new VideojsTracker(player, options);
 
       // IMA3
       // pre mid post roll
