@@ -39,15 +39,14 @@
       width="480px"
       controls
     >
-      <source
-        src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-      />
+      <source src="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd" />
     </video>
     <script>
       //PLAYER
       var player = videojs('myVideo');
 
       /* Get the info object from the video agent onboarding */
+
       options = {
         info: {
           beacon: 'xxxxxxxxxxx',
@@ -56,10 +55,8 @@
         },
       };
 
-      // set up new relic videojs tracker
+      // // set up new relic videojs tracker
       const tracker = new VideojsTracker(player, options);
-      
-      //NEWRELIC
 
       // IMA3
       // pre mid post roll

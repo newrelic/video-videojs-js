@@ -63,6 +63,7 @@ An Attribute is a piece of data associated with an event. Attributes provide add
 | totalAdPlaytime          | Total time ad is played for this video session.                                                                                                    |
 | elapsedTime              | Time that has passed since the last event.                                                                                                         |
 | bufferType               | When buffer starts, i.e., initial, seek, pause & connection.                                                                                       |
+| timeSinceLastError       | Time in milliseconds since the last content error occurred. Only included after an error has occurred.                                             |
 | asn                      | Autonomous System Number: a unique number identifying a group of IP networks that serves the content to the end user.                              |
 | asnLatitude              | The latitude of the geographic center of the postal code where the Autonomous System Network is registered. This is not the end user's latitude.   |
 | asnLongitude             | The longitude of the geographic center of the postal code where the Autonomous System Network is registered. This is not the end user's longitude. |
@@ -125,6 +126,7 @@ An Attribute is a piece of data associated with an event. Attributes provide add
 | adPartner                | The ad partner, e.g., ima, freewheel.                                                                                                              |
 | isBackgroundEvent        | If the player is hidden by another window.                                                                                                         |
 | bufferType               | When buffer starts, i.e., initial, seek, pause & connection.                                                                                       |
+| timeSinceLastAdError     | Time in milliseconds since the last ad error occurred. Only included after an ad error has occurred.                                               |
 | asn                      | Autonomous System Number: a unique number identifying a group of IP networks that serves the content to the end user.                              |
 | asnLatitude              | The latitude of the geographic center of the postal code where the Autonomous System Network is registered. This is not the end user's latitude.   |
 | asnLongitude             | The longitude of the geographic center of the postal code where the Autonomous System Network is registered. This is not the end user's longitude. |

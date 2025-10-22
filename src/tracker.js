@@ -111,9 +111,162 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     return this.player.muted();
   }
 
-  getBitrate() {    
-    const tech = this.getTech();
-    return tech?.tech?.stats?.bandwidth;
+  getBitrate() {
+    let videoBitrate = 0;
+    let audioBitrate = 0;
+    let totalBitrate = 0;
+
+    if (this.player) {
+      const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+
+      if (tech) {
+        let playlists, currentMedia;
+
+        // Method 1: Try VHS (Video HTTP Streaming) - most common for HLS/DASH
+        if (tech.vhs && tech.vhs.playlists && tech.vhs.playlists.media) {
+          playlists = tech.vhs.playlists;
+          currentMedia = tech.vhs.playlists.media();
+        } else if (tech.hls && tech.hls.playlists && tech.hls.playlists.media) {
+          playlists = tech.hls.playlists;
+          currentMedia = tech.hls.playlists.media();
+        }
+
+        if (currentMedia && currentMedia.attributes) {
+          if (currentMedia.attributes.BANDWIDTH) {
+            videoBitrate = currentMedia.attributes.BANDWIDTH;
+          }
+
+          // Get audio bitrate if available
+          const audioTracks = this.player.audioTracks();
+          let activeAudioTrack;
+
+          if (audioTracks && audioTracks.length > 0) {
+            for (let i = 0; i < audioTracks.length; i++) {
+              if (audioTracks[i].enabled) {
+                activeAudioTrack = audioTracks[i];
+                break;
+              }
+            }
+          }
+
+          if (activeAudioTrack && currentMedia.attributes.AUDIO) {
+            let masterPlaylist;
+            if (playlists) {
+              masterPlaylist = playlists.master || playlists.main;
+            }
+
+            if (
+              masterPlaylist &&
+              masterPlaylist.mediaGroups &&
+              masterPlaylist.mediaGroups.AUDIO
+            ) {
+              const audioGroup =
+                masterPlaylist.mediaGroups.AUDIO[currentMedia.attributes.AUDIO];
+              const audioMediaInfo =
+                audioGroup && audioGroup[activeAudioTrack.id];
+
+              if (
+                audioMediaInfo &&
+                audioMediaInfo.playlists &&
+                audioMediaInfo.playlists[0]
+              ) {
+                const audioPlaylist = audioMediaInfo.playlists[0].attributes;
+                if (audioPlaylist && audioPlaylist.BANDWIDTH) {
+                  audioBitrate = audioPlaylist.BANDWIDTH;
+                }
+              }
+            }
+          }
+
+          totalBitrate = videoBitrate + audioBitrate;
+
+          return totalBitrate; // Return in bps
+        }
+
+        // Method 2: Try Shaka Player
+        const shakaPlayer =
+          tech.shakaPlayer_ || tech.shaka_ || tech.shakaPlayer;
+        if (shakaPlayer && typeof shakaPlayer.getStats === 'function') {
+          const stats = shakaPlayer.getStats();
+          if (stats && stats.streamBandwidth) {
+            return stats.streamBandwidth;
+          }
+        }
+
+        // Method 3: Try HLS.js
+        const hlsJs = tech.hls_;
+        if (hlsJs && hlsJs.levels && hlsJs.currentLevel >= 0) {
+          const currentLevel = hlsJs.levels[hlsJs.currentLevel];
+          if (currentLevel && currentLevel.bitrate) {
+            return currentLevel.bitrate;
+          }
+        }
+      }
+
+      // Method 4: Try DASH.js
+      let dashPlayer;
+      if (this.player.mediaPlayer) {
+        dashPlayer = this.player.mediaPlayer;
+      } else if (this.player.dash && this.player.dash.mediaPlayer) {
+        dashPlayer = this.player.dash.mediaPlayer;
+      }
+
+      if (
+        dashPlayer &&
+        typeof dashPlayer.getQualityFor === 'function' &&
+        typeof dashPlayer.getBitrateInfoListFor === 'function'
+      ) {
+        // Get audio bitrate
+        const audioQuality = dashPlayer.getQualityFor('audio');
+        const audioBitrateList = dashPlayer.getBitrateInfoListFor('audio');
+        if (
+          audioQuality !== undefined &&
+          audioBitrateList &&
+          audioBitrateList[audioQuality] &&
+          audioBitrateList[audioQuality].bitrate
+        ) {
+          audioBitrate = audioBitrateList[audioQuality].bitrate;
+        }
+
+        // Get video bitrate
+        const videoQuality = dashPlayer.getQualityFor('video');
+        const videoBitrateList = dashPlayer.getBitrateInfoListFor('video');
+        if (
+          videoQuality !== undefined &&
+          videoBitrateList &&
+          videoBitrateList[videoQuality] &&
+          videoBitrateList[videoQuality].bitrate
+        ) {
+          videoBitrate = videoBitrateList[videoQuality].bitrate;
+        } else {
+          videoBitrate = videoBitrate || 0;
+        }
+
+        totalBitrate = audioBitrate + videoBitrate;
+        return totalBitrate;
+      }
+    }
+
+    // Fallback: Try tech-specific implementations from your wrappers
+    const techWrapper = this.getTech();
+    if (techWrapper) {
+      if (
+        techWrapper.getBitrate &&
+        typeof techWrapper.getBitrate === 'function'
+      ) {
+        return techWrapper.getBitrate();
+      }
+
+      if (
+        techWrapper.tech &&
+        techWrapper.tech.stats &&
+        techWrapper.tech.stats.bandwidth
+      ) {
+        return techWrapper.tech.stats.bandwidth;
+      }
+    }
+
+    return null;
   }
 
   getRenditionName() {
@@ -174,29 +327,45 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
       'dispose',
     ]);
 
-    this.player.on('loadstart', this.onDownload.bind(this));
-    this.player.on('loadeddata', this.onDownload.bind(this));
-    this.player.on('loadedmetadata', this.onDownload.bind(this));
-    this.player.on('adsready', this.onAdsready.bind(this));
-    this.player.on('adstart', this.onAdStart.bind(this));
-    this.player.on('adend', this.onAdEnd.bind(this));
-    this.player.on('play', this.onPlay.bind(this));
-    this.player.on('pause', this.onPause.bind(this));
-    this.player.on('playing', this.onPlaying.bind(this));
-    this.player.on('abort', this.onAbort.bind(this));
-    this.player.on('ended', this.onEnded.bind(this));
-    this.player.on('dispose', this.onDispose.bind(this));
-    this.player.on('seeking', this.onSeeking.bind(this));
-    this.player.on('seeked', this.onSeeked.bind(this));
-    this.player.on('error', this.onError.bind(this));
-    this.player.on('waiting', this.onWaiting.bind(this));
-    this.player.on('timeupdate', this.onTimeupdate.bind(this));
-    this.player.on(
-      'ads-allpods-completed',
-      this.OnAdsAllpodsCompleted.bind(this)
-    );
+    // BIND LISTENER METHODS
+    this.onDownload = this.onDownload.bind(this);
+    this.onAdsready = this.onAdsready.bind(this);
+    this.onAdStart = this.onAdStart.bind(this);
+    this.onAdEnd = this.onAdEnd.bind(this);
+    this.onPlay = this.onPlay.bind(this);
+    this.onPause = this.onPause.bind(this);
+    this.onPlaying = this.onPlaying.bind(this);
+    this.onAbort = this.onAbort.bind(this);
+    this.onEnded = this.onEnded.bind(this);
+    this.onDispose = this.onDispose.bind(this);
+    this.onSeeking = this.onSeeking.bind(this);
+    this.onSeeked = this.onSeeked.bind(this);
+    this.onError = this.onError.bind(this);
+    this.onWaiting = this.onWaiting.bind(this);
+    this.onTimeupdate = this.onTimeupdate.bind(this);
+    this.OnAdsAllpodsCompleted = this.OnAdsAllpodsCompleted.bind(this);
+    this.onStreamManager = this.onStreamManager.bind(this);
 
-    this.player.on('stream-manager', this.onStreamManager.bind(this));
+    this.player.on('loadstart', this.onDownload);
+    this.player.on('loadeddata', this.onDownload);
+    this.player.on('loadedmetadata', this.onDownload);
+    this.player.on('adsready', this.onAdsready);
+    this.player.on('adstart', this.onAdStart);
+    this.player.on('adend', this.onAdEnd);
+    this.player.on('play', this.onPlay);
+    this.player.on('pause', this.onPause);
+    this.player.on('playing', this.onPlaying);
+    this.player.on('abort', this.onAbort);
+    this.player.on('ended', this.onEnded);
+    this.player.on('dispose', this.onDispose);
+    this.player.on('seeking', this.onSeeking);
+    this.player.on('seeked', this.onSeeked);
+    this.player.on('error', this.onError);
+    this.player.on('waiting', this.onWaiting);
+    this.player.on('timeupdate', this.onTimeupdate);
+    this.player.on('ads-allpods-completed', this.OnAdsAllpodsCompleted);
+
+    this.player.on('stream-manager', this.onStreamManager);
   }
 
   unregisterListeners() {
@@ -217,12 +386,9 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.off('error', this.onError);
     this.player.off('waiting', this.onWaiting);
     this.player.off('timeupdate', this.onTimeupdate);
-    this.player.off(
-      'ads-allpods-completed',
-      this.OnAdsAllpodsCompleted.bind(this)
-    );
+    this.player.off('ads-allpods-completed', this.OnAdsAllpodsCompleted);
 
-    this.player.off('stream-manager', this.onStreamManager.bind(this));
+    this.player.off('stream-manager', this.onStreamManager);
   }
 
   onDownload(e) {
