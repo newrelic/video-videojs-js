@@ -1,5 +1,6 @@
 # CHANGELOG
 
+
 ## [4.0.2] - 2025-10-21
 
 ### Bug Fixes
