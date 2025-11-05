@@ -4,12 +4,12 @@ on:
   pull_request:
     types:
       - closed
+  push:
     branches:
       - stable
 
 jobs:
   build-and-publish:
-    if: github.event.pull_request.merged == true 
     uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
     with:
       node-version: 'lts/*'
