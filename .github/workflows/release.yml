@@ -1,0 +1,64 @@
+name: Release and Publish
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  semantic-release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    outputs:
+      new-release-published: ${{ steps.semantic-release.outputs.new-release-published }}
+      new-release-version: ${{ steps.semantic-release.outputs.new-release-version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run Semantic Release
+        id: semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GIT_AUTHOR_NAME: semantic-release-bot
+          GIT_AUTHOR_EMAIL: semantic-release-bot@github.com
+          GIT_COMMITTER_NAME: semantic-release-bot
+          GIT_COMMITTER_EMAIL: semantic-release-bot@github.com
+        run: |
+          npx semantic-release
+
+      - name: Output release info
+        if: steps.semantic-release.outputs.new-release-published == 'true'
+        run: |
+          echo "New release published: ${{ steps.semantic-release.outputs.new-release-version }}"
+
+  build-and-publish:
+    name: Build and Publish to NPM and S3
+    needs: semantic-release
+    if: needs.semantic-release.outputs.new-release-published == 'true'
+    uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
+    with:
+      node-version: 'lts/*'
+      s3-path: 'media-agents/browser/videojs'
+      file-to-upload: 'dist/umd/newrelic-video-videojs.min.js'
+    secrets:
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
