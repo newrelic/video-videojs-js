@@ -1,14 +1,40 @@
 # CHANGELOG
 
+
+## [4.0.2] - 2025-10-21
+
+### Bug Fixes
+
+- **Content Bitrate Detection:** Enhanced `getBitrate()` method with comprehensive Video.js tech support
+  - Added VHS (Video HTTP Streaming) API support for HLS/DASH content
+  - Implemented audio + video bitrate combination for total bandwidth calculation
+  - Added fallback support for Shaka Player, HLS.js, and DASH.js
+  - Improved bitrate detection reliability across different streaming technologies
+  - Fixed issue where bitrate remained constant throughout video playback
+
+## [4.0.1] - 2025-09-11
+
+### Add
+
+- Added methods for `Ad Bitrate` and `Ad Rendition Bitrate` in ima.js and dai.js
+
+## [4.0.0] - 2025-08-26
+
+### Major Updates:
+
+- Upgraded `@newrelic/video-core` dependency to version `4.0.0`.
+- Introduced support for SSAI (Server-Side Ad Insertion) Google DAI.
+- Minor fixes to webpack configuration
+
 ## [3.1.0] - 2025-05-27
 
 ### Enhancements
 
-* **Publishing to npm:** The package can now be published to npm, making it easily accessible.
+- **Publishing to npm:** The package can now be published to npm, making it easily accessible.
 
 ### Build
 
-* **Distribution Formats:** Added `cjs`, `esm`, and `umd` builds to the `dist` folder, ensuring compatibility with CommonJS, ES Modules, and UMD module formats.
+- **Distribution Formats:** Added `cjs`, `esm`, and `umd` builds to the `dist` folder, ensuring compatibility with CommonJS, ES Modules, and UMD module formats.
 
 ## [3.0.1] - 2025-04-24
 

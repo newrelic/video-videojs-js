@@ -26,7 +26,6 @@ code, the source code can be found at [https://github.com/newrelic/video-videojs
 * [babel-loader](#babel-loader)
 * [videojs-ima](#videojs-ima)
 * [webpack-cli](#webpack-cli)
-* [webpack-obfuscator](#webpack-obfuscator)
 * [webpack](#webpack)
 
 **[optionalDependencies](#optionalDependencies)**
@@ -37,7 +36,7 @@ code, the source code can be found at [https://github.com/newrelic/video-videojs
 
 ### @newrelic/video-core
 
-This product includes source derived from [@newrelic/video-core](https://github.com/newrelic/video-core-js) ([v3.1.0](https://github.com/newrelic/video-core-js/tree/v3.1.0)), distributed under the [MIT License](https://github.com/newrelic/video-core-js/blob/v3.1.0/LICENSE.txt):
+This product includes source derived from [@newrelic/video-core](https://github.com/newrelic/video-core-js) ([v3.1.1](https://github.com/newrelic/video-core-js/tree/v3.1.1)), distributed under the [Apache-2.0 License](https://github.com/newrelic/video-core-js/blob/v3.1.1/LICENSE):
 
 ```
                                  Apache License
@@ -228,7 +227,7 @@ This product includes source derived from [@newrelic/video-core](https://github.
       same "printed page" as the copyright notice for easier
       identification within third-party archives.
 
-   Copyright 2019 New Relic, Inc.
+   Copyright New Relic, Inc. All rights reserved.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -1019,32 +1018,6 @@ IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
 CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### webpack-obfuscator
-
-This product includes source derived from [webpack-obfuscator](https://github.com/javascript-obfuscator/webpack-obfuscator) ([v3.5.1](https://github.com/javascript-obfuscator/webpack-obfuscator/tree/v3.5.1)), distributed under the [BSD-2-Clause License](https://github.com/javascript-obfuscator/webpack-obfuscator/blob/v3.5.1/LICENSE.BSD):
-
-```
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are met:
-
-  * Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
-  * Redistributions in binary form must reproduce the above copyright
-    notice, this list of conditions and the following disclaimer in the
-    documentation and/or other materials provided with the distribution.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-ARE DISCLAIMED. IN NO EVENT SHALL <COPYRIGHT HOLDER> BE LIABLE FOR ANY
-DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
-(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
-LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
-ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
-(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
-THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
 ### webpack

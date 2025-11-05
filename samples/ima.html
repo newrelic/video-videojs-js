@@ -26,7 +26,8 @@
       }
     </style>
     <!-- newrelic browser agent. REMEMBER TO REPLACE THIS SCRIPT WITH YOUR OWN BROWSER AGENT -->
-    <script type="text/javascript" src="agent.js"></script>
+    <!-- Include if using versions below 4.x -->
+    <!-- <script type="text/javascript" src="../../video-core-js/samples/agent.js"></script> -->
     <!-- New Relic Tracker -->
     <script src="../dist/umd/newrelic-video-videojs.min.js"></script>
   </head>
@@ -38,16 +39,24 @@
       width="480px"
       controls
     >
-      <source
-        src="https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
-      />
+      <source src="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd" />
     </video>
     <script>
       //PLAYER
       var player = videojs('myVideo');
 
-      const tracker = new VideojsTracker(player);
-      //NEWRELIC
+      /* Get the info object from the video agent onboarding */
+
+      options = {
+        info: {
+          beacon: 'xxxxxxxxxxx',
+          licenseKey: 'xxxxxxxxxxx',
+          applicationID: 'xxxxxxxxxxxx',
+        },
+      };
+
+      // // set up new relic videojs tracker
+      const tracker = new VideojsTracker(player, options);
 
       // IMA3
       // pre mid post roll
