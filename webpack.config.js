@@ -4,11 +4,11 @@ var TerserPlugin = require('terser-webpack-plugin');
 var pkg = require('./package.json');
 
 var license =
-  '@license ' +
+  "@license " +
   pkg.license +
-  '\n' +
+  "\n" +
   pkg.name +
-  ' ' +
+  " " +
   pkg.version +
   '\nCopyright New Relic <http://newrelic.com/>\n' +
   '@author ' +
