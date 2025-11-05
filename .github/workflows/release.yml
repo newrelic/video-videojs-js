@@ -17,7 +17,7 @@ jobs:
     name: Create Release
     runs-on: ubuntu-latest
     # Only run if: direct push to master OR PR was merged from develop
-    if: github.event_name == 'push' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'develop')
+#    if: github.event_name == 'push' || (github.event.pull_request.merged == true && github.event.pull_request.head.ref == 'develop')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
