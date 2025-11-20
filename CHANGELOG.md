@@ -1,3 +1,20 @@
+## [4.0.3] - 2025-11-20
+
+* chore: make github token available to dry run step
+* chore: persist credentials for github action
+* chore: update release process to raise a pr to master to be compliant with branch rules
+* chore: update README.md
+* Merge pull request #68 from newrelic/NR-484244-add-release-github-action
+* chore: adapt new npm publish changes
+* chore: add scematic release steps in ci
+* Merge pull request #67 from newrelic/stable
+* Merge pull request #66 from newrelic/NR-425132-update-pricing-doc
+* Merge pull request #64 from newrelic/fix/npm-workflow
+* chore: update README.md with pricing
+* fix: removed github token
+* Update npm publish workflow with permissions and GITHUB_TOKEN
+* Merge pull request #63 from newrelic/master
+
 # CHANGELOG
 
 
