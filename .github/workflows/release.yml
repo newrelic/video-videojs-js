@@ -39,6 +39,8 @@ jobs:
 
       - name: Analyze commits and prepare release
         id: prepare-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Run semantic-release in dry-run to analyze and get version/notes
           npx semantic-release --dry-run --no-ci > dry-run.log 2>&1 || true
