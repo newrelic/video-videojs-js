@@ -1,0 +1,80 @@
+name: Publish Release
+
+on:
+  pull_request:
+    types:
+      - closed
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  create-release:
+    name: Create GitHub Release
+    # Only run when a release PR is merged
+    if: |
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'release')
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release-created: ${{ steps.create-release.outputs.created }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Get version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Extract changelog for this version
+        id: changelog
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          # Extract the changelog section for this version
+          CHANGELOG_CONTENT=$(sed -n "/## \[$VERSION\]/,/## \[/p" CHANGELOG.md | sed '$ d' || echo "Release $VERSION")
+          # Save to file for GitHub release
+          echo "$CHANGELOG_CONTENT" > release-notes.md
+
+      - name: Create GitHub Release
+        id: create-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Check if release already exists
+          if gh release view "v${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "Release v${{ steps.version.outputs.version }} already exists, skipping creation"
+            echo "created=false" >> $GITHUB_OUTPUT
+          else
+            gh release create "v${{ steps.version.outputs.version }}" \
+              --title "v${{ steps.version.outputs.version }}" \
+              --notes-file release-notes.md \
+              --latest
+            echo "created=true" >> $GITHUB_OUTPUT
+          fi
+
+  publish-npm-s3:
+    name: Publish to NPM and S3
+    needs: create-release
+    # Note: The reusable workflow is expected to handle checkout, build, and publishing
+    # If it doesn't build, we may need to add a pre-build step here
+    uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
+    with:
+      s3-path: 'media-agents/browser/videojs'
+      file-to-upload: 'dist/umd/newrelic-video-videojs.min.js'
+    secrets:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
