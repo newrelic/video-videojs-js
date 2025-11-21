@@ -93,6 +93,19 @@ jobs:
           # - Commit changes via @semantic-release/git
           npx semantic-release --no-ci
 
+          # Verify that commits were created
+          COMMITS_COUNT=$(git rev-list --count master.."$RELEASE_BRANCH")
+          if [ "$COMMITS_COUNT" -eq 0 ]; then
+            echo "Error: No commits were created by semantic-release"
+            exit 1
+          fi
+
+          echo "Found $COMMITS_COUNT commit(s) on release branch"
+          git log --oneline master.."$RELEASE_BRANCH"
+
+          # Push the release branch with commits to remote
+          git push -u origin "$RELEASE_BRANCH"
+
       - name: Create Pull Request
         if: steps.prepare-release.outputs.skip != 'true'
         env:
