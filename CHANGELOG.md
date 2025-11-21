@@ -1,10 +1,3 @@
-## [4.0.3](https://github.com/newrelic/video-videojs-js/compare/v4.0.2...v4.0.3) (2025-11-21)
-
-
-### Bug Fixes
-
-* removed github token ([f5f9ade](https://github.com/newrelic/video-videojs-js/commit/f5f9ade01c9af411d72ec74874f8d0750c5f0f66))
-
 # CHANGELOG
 
 
