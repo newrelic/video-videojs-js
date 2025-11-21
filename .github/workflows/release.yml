@@ -165,6 +165,5 @@ jobs:
           $CHANGELOG_EXCERPT
 
           ---
-          *This PR was automatically created by the release workflow. Merge this PR to publish the release to npm and S3.*" \
-            --label "release"
+          *This PR was automatically created by the release workflow. Merge this PR to publish the release to npm and S3.*"
 
