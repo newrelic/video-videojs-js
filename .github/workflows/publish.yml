@@ -6,6 +6,7 @@ on:
       - closed
     branches:
       - master
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -14,7 +15,7 @@ permissions:
 jobs:
   build-and-publish:
     if: github.event.pull_request.merged == true &&
-      contains(github.event.pull_request.labels.*.name, 'release')
+      startsWith(github.event.pull_request.head.ref, 'release/')
     uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
     with:
       s3-path: 'media-agents/browser/videojs'
