@@ -879,9 +879,6 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         );
         this.sendAdBreakStart();
         activeAdBreak.hasFiredStart = true;
-        if (this.player.controlBar && this.player.controlBar.progressControl) {
-          this.player.controlBar.progressControl.disable();
-        }
       }
 
       // Check if we have pod information
