@@ -12,6 +12,8 @@
       id="my-player"
       class="video-js"
       controls
+      muted
+      autoplay
       preload="auto"
       width="640"
       height="360"
@@ -36,6 +38,13 @@
           applicationID: '601599692',
           licenseKey: 'NRBR-5276ec87a4a0c11f5fa',
         },
+        // MediaTailor specific options
+        mt: {
+          enableManifestParsing: true, // Enable/disable manifest parsing (default: true)
+          manifestPollInterval: 3000,  // Poll manifest every 3s for live streams
+          trackingPollInterval: 5000,  // Poll tracking API every 5s for live streams
+          initialTrackingDelay: 2000   // Wait 2s before fetching tracking API
+        }
       };
 
       // 4. Initialize the player

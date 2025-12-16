@@ -13,6 +13,7 @@ import MediaTailorAdsTracker from './ads/media-tailor';
 export default class VideojsTracker extends nrvideo.VideoTracker {
   constructor(player, options) {
     super(player, options);
+    this.options = options;
     this.isContentEnd = false;
     this.imaAdCuePoints = '';
     this.daiInitialized = false;
@@ -405,7 +406,7 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
       console.log(
         'VideojsTracker: Creating MediaTailorAdsTracker after source load'
       );
-      this.setAdsTracker(new MediaTailorAdsTracker(this.player));
+      this.setAdsTracker(new MediaTailorAdsTracker(this.player, this.options));
     }
   }
 
