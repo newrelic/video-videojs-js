@@ -568,37 +568,118 @@ export async function getDASHManifest(manifestUrl) {
 
 /**
  * Parses DASH XML text for SCTE-35 EventStream markers
+ * Supports multiple SCTE-35 schemeIdUri formats used by MediaTailor
  */
 export function parseDASHManifestForAds(xmlText) {
   const parser = new DOMParser();
   const xml = parser.parseFromString(xmlText, 'text/xml');
   const ads = [];
 
-  // Find all EventStream elements with SCTE-35
-  const eventStreams = xml.querySelectorAll('EventStream[schemeIdUri*="scte35"]');
+  // Check for parsing errors
+  const parserError = xml.querySelector('parsererror');
+  if (parserError) {
+    console.error('[MT] DASH XML parse error:', parserError.textContent);
+    return ads;
+  }
 
-  eventStreams.forEach((stream) => {
+  // Get MPD element to extract timescale if needed
+  const mpd = xml.documentElement;
+  const mpdTimescale = parseFloat(mpd.getAttribute('timescale') || '1');
+
+  // Find all EventStream elements with SCTE-35
+  // Common schemeIdUri values:
+  // - urn:scte:scte35:2013:bin (binary SCTE-35)
+  // - urn:scte:scte35:2014:xml (XML SCTE-35)
+  // - urn:scte:scte35:2013:xml (older XML format)
+  const eventStreams = xml.querySelectorAll(
+    'EventStream[schemeIdUri*="scte35"], EventStream[schemeIdUri*="SCTE35"]'
+  );
+
+  console.log(`[MT] Found ${eventStreams.length} SCTE-35 EventStream(s) in DASH manifest`);
+
+  eventStreams.forEach((stream, streamIndex) => {
+    const schemeIdUri = stream.getAttribute('schemeIdUri');
+    const value = stream.getAttribute('value') || '';
+    const timescale = parseFloat(stream.getAttribute('timescale') || mpdTimescale);
+
+    console.log(`[MT] EventStream ${streamIndex + 1}:`, {
+      schemeIdUri,
+      value,
+      timescale,
+    });
+
     const events = stream.querySelectorAll('Event');
-    events.forEach((event) => {
+
+    events.forEach((event, eventIndex) => {
+      // Get timing attributes
       const presentationTime = parseFloat(event.getAttribute('presentationTime') || 0);
       const duration = parseFloat(event.getAttribute('duration') || 0);
+      const eventId = event.getAttribute('id') || `dash-event-${presentationTime}`;
 
-      if (duration > 0) {
+      // Convert from timescale to seconds if needed
+      const startTime = timescale !== 1 ? presentationTime / timescale : presentationTime;
+      const durationSeconds = timescale !== 1 ? duration / timescale : duration;
+
+      console.log(`[MT] Event ${eventIndex + 1}:`, {
+        id: eventId,
+        presentationTime,
+        duration,
+        timescale,
+        startTime,
+        durationSeconds,
+      });
+
+      // Only add valid ad breaks (positive duration)
+      if (durationSeconds > MIN_AD_DURATION) {
+        // Try to extract SCTE-35 signal type and metadata
+        let signalType = null;
+        let messageData = null;
+
+        // Check for Signal element (XML SCTE-35)
+        const signal = event.querySelector('Signal, scte35\\:Signal');
+        if (signal) {
+          signalType = signal.querySelector('SpliceInsert, scte35\\:SpliceInsert')
+            ? 'SpliceInsert'
+            : signal.querySelector('TimeSignal, scte35\\:TimeSignal')
+            ? 'TimeSignal'
+            : 'Unknown';
+        }
+
+        // Check for binary data
+        const binaryData = event.textContent?.trim();
+        if (binaryData && binaryData.length > 0) {
+          messageData = binaryData;
+        }
+
         ads.push({
-          id: event.getAttribute('id') || `avail-${presentationTime}`,
-          startTime: presentationTime,
-          duration: duration,
-          endTime: presentationTime + duration,
+          id: eventId,
+          startTime: startTime,
+          duration: durationSeconds,
+          endTime: startTime + durationSeconds,
           source: AD_SOURCE.MANIFEST_CUE,
           confirmedByTracking: false,
           hasFiredStart: false,
           hasFiredEnd: false,
           hasFiredAdStart: false,
           pods: [],
+          // Additional DASH-specific metadata
+          dashMetadata: {
+            schemeIdUri,
+            value,
+            timescale,
+            signalType,
+            hasMessageData: !!messageData,
+          },
         });
+      } else {
+        console.log(
+          `[MT] Skipping event ${eventId} - duration too short (${durationSeconds}s < ${MIN_AD_DURATION}s)`
+        );
       }
     });
   });
+
+  console.log(`[MT] Parsed ${ads.length} valid ad break(s) from DASH manifest`);
 
   return ads;
 }

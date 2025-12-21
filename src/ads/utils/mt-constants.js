@@ -45,10 +45,12 @@ export const AD_POSITION = {
 
 // Ad Detection Sources
 export const AD_SOURCE = {
-  MANIFEST_CUE: 'manifest-cue', // Detected from CUE-OUT/CUE-IN tags
+  MANIFEST_CUE: 'manifest-cue', // Detected from CUE-OUT/CUE-IN tags (HLS) or EventStream (DASH)
   VHS_DISCONTINUITY: 'vhs-discontinuity', // Detected from VHS discontinuityStarts
   TRACKING_API: 'tracking-api', // Added from tracking API response
   MANIFEST_AND_TRACKING: 'manifest+tracking', // Enriched by both sources
+  DASH_EMSG: 'dash-emsg', // Detected from DASH emsg events (Shaka Player)
+  DASH_EVENT_STREAM: 'dash-event-stream', // Detected from DASH EventStream (dash.js)
 };
 
 // Quartile Percentages

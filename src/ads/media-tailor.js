@@ -492,7 +492,65 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    */
   handleDASHEmsgEvent(event) {
     console.log(`[MT - ${getTimestamp()}] DASH emsg event:`, event);
-    // TODO: Full SCTE-35 parsing
+
+    try {
+      // Shaka Player emits emsg events with event.detail containing the emsg box data
+      const emsgData = event.detail;
+
+      if (!emsgData) {
+        console.log(`[MT - ${getTimestamp()}] No emsg data in event`);
+        return;
+      }
+
+      // Check if this is a SCTE-35 event
+      // schemeIdUri for SCTE-35: urn:scte:scte35:2013:bin or urn:scte:scte35:2014:xml
+      const schemeIdUri = emsgData.schemeIdUri || '';
+
+      if (!schemeIdUri.includes('scte35')) {
+        console.log(`[MT - ${getTimestamp()}] Non-SCTE-35 emsg, skipping:`, schemeIdUri);
+        return;
+      }
+
+      console.log(`[MT - ${getTimestamp()}] SCTE-35 emsg detected:`, {
+        schemeIdUri: emsgData.schemeIdUri,
+        value: emsgData.value,
+        timescale: emsgData.timescale,
+        presentationTime: emsgData.presentationTime,
+        presentationTimeDelta: emsgData.presentationTimeDelta,
+        eventDuration: emsgData.eventDuration,
+      });
+
+      // Calculate start time in seconds
+      const timescale = emsgData.timescale || 1;
+      const presentationTime = emsgData.presentationTime || 0;
+      const eventDuration = emsgData.eventDuration || 0;
+
+      const startTime = presentationTime / timescale;
+      const duration = eventDuration / timescale;
+
+      // Parse SCTE-35 message data
+      const messageData = emsgData.messageData;
+
+      if (messageData && duration > 0) {
+        const adBreak = {
+          id: `dash-emsg-${startTime}`,
+          startTime: startTime,
+          duration: duration,
+          endTime: startTime + duration,
+          source: 'dash-emsg',
+          confirmedByTracking: false,
+          hasFiredStart: false,
+          hasFiredEnd: false,
+          hasFiredAdStart: false,
+          pods: [],
+        };
+
+        console.log(`[MT - ${getTimestamp()}] Adding ad break from DASH emsg:`, adBreak);
+        this.mergeNewAds([adBreak]);
+      }
+    } catch (error) {
+      console.log(`[MT - ${getTimestamp()}] Error parsing DASH emsg event:`, error);
+    }
   }
 
   /**
@@ -500,7 +558,56 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    */
   handleDASHEventStream(event) {
     console.log(`[MT - ${getTimestamp()}] DASH event stream:`, event);
-    // TODO: Full SCTE-35 parsing
+
+    try {
+      // dash.js emits events with different structure
+      const eventData = event.event || event;
+
+      if (!eventData) {
+        console.log(`[MT - ${getTimestamp()}] No event data`);
+        return;
+      }
+
+      // Check if this is a SCTE-35 event
+      const schemeIdUri = eventData.schemeIdUri || '';
+
+      if (!schemeIdUri.includes('scte35')) {
+        console.log(`[MT - ${getTimestamp()}] Non-SCTE-35 event, skipping:`, schemeIdUri);
+        return;
+      }
+
+      console.log(`[MT - ${getTimestamp()}] SCTE-35 event stream detected:`, {
+        id: eventData.id,
+        schemeIdUri: eventData.schemeIdUri,
+        presentationTime: eventData.presentationTime,
+        duration: eventData.duration,
+        messageData: eventData.messageData,
+      });
+
+      // Calculate timing
+      const startTime = parseFloat(eventData.presentationTime || 0);
+      const duration = parseFloat(eventData.duration || 0);
+
+      if (duration > 0) {
+        const adBreak = {
+          id: eventData.id || `dash-event-${startTime}`,
+          startTime: startTime,
+          duration: duration,
+          endTime: startTime + duration,
+          source: 'dash-event-stream',
+          confirmedByTracking: false,
+          hasFiredStart: false,
+          hasFiredEnd: false,
+          hasFiredAdStart: false,
+          pods: [],
+        };
+
+        console.log(`[MT - ${getTimestamp()}] Adding ad break from DASH event stream:`, adBreak);
+        this.mergeNewAds([adBreak]);
+      }
+    } catch (error) {
+      console.log(`[MT - ${getTimestamp()}] Error parsing DASH event stream:`, error);
+    }
   }
 
   /**
