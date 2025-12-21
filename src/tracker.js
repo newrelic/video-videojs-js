@@ -8,11 +8,12 @@ import ImaAdsTracker from './ads/ima';
 import BrightcoveImaAdsTracker from './ads/brightcove-ima';
 import FreewheelAdsTracker from './ads/freewheel';
 import DaiAdsTracker from './ads/dai';
+import MediaTailorAdsTracker from './ads/media-tailor';
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
   constructor(player, options) {
     super(player, options);
-
+    this.options = options;
     this.isContentEnd = false;
     this.imaAdCuePoints = '';
     this.daiInitialized = false;
@@ -318,6 +319,19 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
   onDownload(e) {
     this.sendDownload({ state: e.type });
+
+    // Check if MediaTailor should be used after the source is loaded
+    // Only check on 'loadstart' to avoid multiple checks
+    if (
+      !this.adsTracker &&
+      e.type === 'loadstart' &&
+      MediaTailorAdsTracker.isUsing(this.player)
+    ) {
+      console.log(
+        'VideojsTracker: Creating MediaTailorAdsTracker after source load'
+      );
+      this.setAdsTracker(new MediaTailorAdsTracker(this.player, this.options));
+    }
   }
 
   // DAI methods
@@ -439,4 +453,5 @@ export {
   ImaAdsTracker,
   BrightcoveImaAdsTracker,
   FreewheelAdsTracker,
+  MediaTailorAdsTracker,
 };
