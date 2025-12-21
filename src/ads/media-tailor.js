@@ -1,19 +1,49 @@
 /* eslint-disable no-undef */
 import nrvideo from '@newrelic/video-core';
 import VideojsAdsTracker from './videojs-ads';
+import {
+  DEFAULT_CONFIG,
+  STREAM_TYPE,
+  MANIFEST_TYPE,
+} from './utils/mt-constants.js';
+import {
+  getTimestamp,
+  detectManifestType,
+  detectStreamType,
+  extractTrackingUrl,
+  determineAdPosition,
+  getQuartilesToFire,
+  findActiveAdBreak,
+  findActivePod,
+  mergeAdSchedules,
+  parseHLSManifestForAds,
+  parseDASHManifestForAds,
+  detectAdsFromVHSPlaylist,
+  enrichScheduleWithTracking,
+  getHLSMasterManifest,
+  getHLSMediaPlaylist,
+  getDASHManifest,
+  getTrackingMetadata,
+} from './utils/mt.js';
 
-const { Log } = nrvideo;
+// Handle both direct and default export from video-core
+const nrvideoCore = nrvideo.default || nrvideo;
+const Log = nrvideoCore.Log;
 
-// OPTIMIZATION: Compile regex patterns once
-const REGEX_CUE_OUT = /DURATION=([\d.]+)/;
-const REGEX_MAP_URI = /URI="([^"]+)"/;
-const REGEX_CUE_IN = /#EXT-X-CUE-IN/;
-
+/**
+ * AWS MediaTailor Ad Tracker
+ * Tracks ads from AWS MediaTailor SSAI streams (HLS/DASH)
+ *
+ * Features:
+ * - Client-side ad detection from manifest markers (CUE-OUT/CUE-IN)
+ * - Pod-level tracking (multiple ads within one break)
+ * - VOD and Live stream support
+ * - Zero race conditions via VHS player hooks
+ * - Tracking API metadata enrichment
+ */
 export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   /**
-   * To be instantiated, the player must have a src that contains ".mediatailor."
-   * @param {object} player A videojs player instance.
-   * @returns {boolean} True if the tracker can be used.
+   * Checks if tracker should be used for this player source
    */
   static isUsing(player) {
     return (
@@ -24,760 +54,153 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
-   * Returns the tracker name.
-   * @returns {string} Tracker name.
+   * Returns tracker name for New Relic instrumentation
    */
   getTrackerName() {
     return 'aws-media-tailor';
   }
 
   /**
-   * Returns the player version.
-   * @returns {string} Player version.
+   * Returns player version (MediaTailor doesn't have version)
    */
   getPlayerVersion() {
-    return 'MediaTailor'; // MediaTailor doesn't have a version in the player
+    return 'MediaTailor';
+  }
+
+  /**
+   * Override to return the correct ad position from our ad schedule
+   * This overrides video-core's default logic which only checks if content started
+   */
+  getAdPosition() {
+    // Return stored position from current ad break if available
+    if (this.currentAdBreak && this.currentAdBreak.adPosition) {
+      return this.currentAdBreak.adPosition;
+    }
+    // Fall back to parent implementation
+    return super.getAdPosition();
   }
 
   constructor(player, options = {}) {
     super(player);
 
-    // NEW: Configuration with defaults
-    // Allow options to be passed directly or under 'mt' key
+    // Merge config with defaults
     const mtOptions = options.mt || options;
+    this.config = { ...DEFAULT_CONFIG, ...mtOptions };
 
-    this.config = {
-      enableManifestParsing: mtOptions.enableManifestParsing !== false, // true by default
-      manifestPollInterval: Math.min(mtOptions.manifestPollInterval || 10000, 15000), // Max 15 seconds
-      trackingPollInterval: mtOptions.trackingPollInterval || 5000, // 5 seconds
-      initialTrackingDelay: mtOptions.initialTrackingDelay || 500, // 500ms initial delay
-      retryAttempts: mtOptions.retryAttempts || 10, // 10 attempts over ~5 seconds
-      retryDelay: mtOptions.retryDelay || 500, // 500ms between retries
-    };
+    // Initialize state
+    this.streamType = null; // 'vod' or 'live'
+    this.manifestType = null; // 'hls' or 'dash'
+    this.mediaTailorEndpoint = player.currentSrc();
+    // Note: isAd is set to false by parent tracker after setAdsTracker() call
 
-    this.setIsAd(true); // Mark this tracker as an ad tracker
-    this.adSchedule = []; // Initialize ad schedule
-    this.sessionInitialized = false; // Initialize session flag
-    this.sessionInitializing = false; // Flag to prevent multiple initialization attempts
-    this.currentAdBreak = null; // Initialize current ad break
-    this.currentAdPod = null; // Initialize current ad pod
-    this.mediaTailorEndpoint = player.currentSrc(); // Store the MediaTailor endpoint
-    this.isInitialLoad = true; // Flag to track if this is the first load
+    // Ad tracking state
+    this.adSchedule = []; // All detected ad breaks
+    this.currentAdBreak = null; // Active ad break
+    this.currentAdPod = null; // Active pod within break
+    this.hasEndedContent = false; // Track if CONTENT_END has been sent
 
-    // NEW: Polling flags
-    this.isPolling = false;
+    // Disposal and abort state
+    this.isDisposed = false;
+    this.trackingAbortController = null;
+    this.manifestAbortController = null;
+    this.isFetchingTracking = false;
+    this.isFetchingManifest = false;
+
+    // Tracking API state
+    this.trackingUrl = null;
+    this.hasAttemptedTrackingFetch = false;
+    this.trackingFetchRetries = 0;
+    this.maxTrackingRetries = 1;
+
+    // Live polling timers
     this.manifestPollTimer = null;
     this.trackingPollTimer = null;
 
+    // Manifest parsing cache
+    this.mediaPlaylistUrl = null;
+    this.lastMediaPlaylistText = null;
+    this.manifestTargetDuration = null; // For optimal live polling interval
+
+    console.log(`[MT - ${getTimestamp()}] MediaTailorAdsTracker initialized`, {
+      endpoint: this.mediaTailorEndpoint,
+      config: this.config,
+    });
+
+    // Detect manifest format from URL
+    this.manifestType = detectManifestType(this.mediaTailorEndpoint);
     console.log(
-      `[${new Date().toISOString()}] MediaTailorAdsTracker: Constructor called`,
-      {
-        isAd: this.isAd(),
-        currentSrc: player.currentSrc(),
-        mediaTailorEndpoint: this.mediaTailorEndpoint,
-        config: this.config,
-      }
+      `[MT - ${getTimestamp()}] Manifest type: ${this.manifestType.toUpperCase()}`
     );
 
-    // Initialize session immediately on construction, before playback starts
-    if (MediaTailorAdsTracker.isUsing(this.player)) {
+    // Wait for player metadata to detect stream type
+    this.player.one('loadedmetadata', () => {
+      this.streamType = detectStreamType(this.player.duration());
       console.log(
-        `[${new Date().toISOString()}] MediaTailorAdsTracker: Initializing session on construction`
+        `[MT - ${getTimestamp()}] Stream type: ${this.streamType.toUpperCase()}`
       );
-      this.initializeSession();
-    }
+      this.initializeTracking();
+    });
   }
 
   /**
-   * This function is called when the videojs-ads plugin is initialized.
+   * Initializes tracking based on detected stream type
    */
-  onAdsReady() {
-    // Don't initialize here, wait for timeupdate to avoid race conditions
-  }
-
-  /**
-   * Initializes the MediaTailor session by making a POST request to the endpoint.
-   */
-  async initializeSession() {
-    if (this.sessionInitialized || this.sessionInitializing) return;
-    this.sessionInitializing = true;
-
-    // Safety check: make sure we have a valid endpoint
-    if (!this.mediaTailorEndpoint) {
-      console.log(
-        `[${new Date().toISOString()}] MediaTailorAdsTracker: No endpoint available, skipping session initialization`
-      );
-      this.sessionInitializing = false;
-      return;
-    }
-
-    try {
-      console.log(
-        `[${new Date().toISOString()}] Initializing session with MediaTailor.`,
-        this.mediaTailorEndpoint
-      );
-
-      // Extract the session initialization endpoint from the HLS URL
-      // Convert from: https://.../v1/master/<hashed-id>/<config>/master.m3u8
-      // To: https://.../v1/session/<hashed-id>/<config>/master.m3u8
-      // Note: Keep the /master.m3u8 part - it's required for session initialization!
-      let sessionEndpoint = this.mediaTailorEndpoint;
-      if (sessionEndpoint.includes('/v1/master/')) {
-        sessionEndpoint = sessionEndpoint.replace(
-          '/v1/master/',
-          '/v1/session/'
-        );
-      }
-
-      console.log(
-        `[${new Date().toISOString()}] Session endpoint URL:`,
-        sessionEndpoint
-      );
-
-      this.originBaseUrl = new URL(sessionEndpoint).origin;
-
-      const response = await fetch(sessionEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          adsParams: {},
-          reportingMode: 'client',
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `MediaTailor session request failed: ${response.status}`
-        );
-      }
-
-      const sessionData = await response.json();
-
-      const manifestUrl = new URL(sessionData.manifestUrl, this.originBaseUrl)
-        .href;
-      this.trackingUrl = new URL(
-        sessionData.trackingUrl,
-        this.originBaseUrl
-      ).href;
-
-      console.log(
-        `[${new Date().toISOString()}] MediaTailor session initialized.`,
-        {
-          manifestUrl,
-          trackingUrl: this.trackingUrl,
-        }
-      );
-
-      // Store the session manifest URL but DON'T update player.src()
-      // The HLS player will naturally use the session URL when it requests the manifest
-      // Updating src() would trigger a new loadstart event and duplicate CONTENT_REQUEST
-      this.sessionManifestUrl = manifestUrl;
-      console.log(
-        `[${new Date().toISOString()}] MediaTailorAdsTracker: Session manifest URL stored (not updating player to avoid duplicate events)`
-      );
-
-      this.sessionInitialized = true;
-
-      // NEW: Parse manifest immediately for zero-latency detection
-      if (this.config.enableManifestParsing) {
-        console.log(
-          `[${new Date().toISOString()}] [MANIFEST] Parsing manifest for immediate ad detection...`
-        );
-        const manifestAds = await this.parseManifestForAds(manifestUrl);
-
-        if (manifestAds.length > 0) {
-          this.adSchedule = manifestAds;
-          console.log(
-            `[${new Date().toISOString()}] [MANIFEST] Ad schedule initialized with ${
-              manifestAds.length
-            } ads from manifest`
-          );
-        }
-
-        // NEW: Start polling immediately for pre-roll ads
-        // MediaTailor may not have inserted ads into the manifest yet at session creation time
-        console.log(
-          `[${new Date().toISOString()}] [POLLING] Starting manifest polling for pre-roll detection...`
-        );
-        this.startManifestPolling();
-      }
-
-      // Load tracking API in background (will merge with manifest data)
-      setTimeout(() => this.loadTracker(), this.config.initialTrackingDelay);
-    } catch (error) {
-      Log.error('Error initializing MediaTailor session:', error);
-      this.sendError(error);
-    } finally {
-      this.sessionInitializing = false;
-    }
-  }
-
-  /**
-   * Parses HLS manifest for ad markers (CUE-OUT tags)
-   * @param {string} manifestUrl - The manifest URL to parse
-   * @returns {Promise<Array>} Array of ad breaks found in manifest
-   */
-  async parseManifestForAds(manifestUrl) {
-    if (!this.config.enableManifestParsing) {
-      console.log(
-        `[${new Date().toISOString()}] [MANIFEST] Parsing disabled via config`
-      );
-      return [];
-    }
-
-    try {
-      let mediaPlaylistUrl = this.mediaPlaylistUrl;
-
-      // OPTIMIZATION: Only fetch master manifest if we don't have the media playlist URL yet
-      if (!mediaPlaylistUrl) {
-        console.log(
-          `[${new Date().toISOString()}] [MANIFEST] Fetching master manifest:`,
-          manifestUrl
-        );
-
-        // Fetch master manifest with credentials to share MediaTailor session cookies
-        const masterResponse = await fetch(manifestUrl, {
-          credentials: 'include', // Include cookies for MediaTailor session affinity
-        });
-        const masterText = await masterResponse.text();
-
-        console.log(
-          `[${new Date().toISOString()}] [MANIFEST] Master manifest content:\n`,
-          masterText
-        );
-
-        // Find first media playlist URL
-        const lines = masterText.split('\n');
-
-        for (const line of lines) {
-          if (!line.startsWith('#') && line.includes('.m3u8')) {
-            mediaPlaylistUrl = new URL(line.trim(), manifestUrl).href;
-            break;
-          }
-        }
-
-        if (!mediaPlaylistUrl) {
-          console.log(
-            `[${new Date().toISOString()}] [MANIFEST] No media playlist found`
-          );
-          return [];
-        }
-
-        this.mediaPlaylistUrl = mediaPlaylistUrl; // Cache it
-      }
-
-      console.log(
-        `[${new Date().toISOString()}] [MANIFEST] Found media playlist:`,
-        mediaPlaylistUrl
-      );
-
-      // Fetch media playlist with credentials to share MediaTailor session cookies
-      const mediaResponse = await fetch(mediaPlaylistUrl, {
-        credentials: 'include', // Include cookies for MediaTailor session affinity
-      });
-      const mediaText = await mediaResponse.text();
-
-      // OPTIMIZATION: Skip parsing if playlist hasn't changed
-      if (
-        this.lastMediaPlaylistText &&
-        this.lastMediaPlaylistText === mediaText
-      ) {
-        return [];
-      }
-      this.lastMediaPlaylistText = mediaText;
-
-      console.log(
-        `[${new Date().toISOString()}] [MANIFEST] Media playlist content:\n`,
-        mediaText
-      );
-
-      return this.parsePlaylistForAds(mediaText);
-    } catch (error) {
-      Log.error('[MANIFEST] Error parsing manifest:', error);
-      // Reset cache on error to force fresh fetch next time
-      this.mediaPlaylistUrl = null;
-      this.lastMediaPlaylistText = null;
-      return []; // Return empty array, fallback to tracking API
-    }
-  }
-
-  /**
-   * Parses a playlist text for ad markers
-   * @param {string} playlistText - The playlist content
-   * @returns {Array} Array of ad breaks
-   */
-  parsePlaylistForAds(playlistText) {
-    const adBreaks = [];
-    const lines = playlistText.split('\n');
-    let currentTime = 0;
-    let lineNumber = 0;
-    let currentAdBreak = null; // Track ongoing ad break
-    let adPods = []; // Track individual ad pods within current ad break
-    let currentPodStartTime = null;
-    let isInAdBreak = false;
-    let lastMapUrl = null;
-
+  initializeTracking() {
     console.log(
-      `[${new Date().toISOString()}] [MANIFEST] Parsing playlist with ${
-        lines.length
-      } lines...`
+      `[MT - ${getTimestamp()}] Initializing ${this.manifestType.toUpperCase()} ${this.streamType.toUpperCase()} tracking`
     );
 
-    for (const line of lines) {
-      lineNumber++;
-
-      // Detect CUE-OUT tags (ad break start)
-      if (line.startsWith('#EXT-X-CUE-OUT')) {
-        const durationMatch = line.match(REGEX_CUE_OUT);
-        const hasDuration = !!durationMatch;
-        const duration = hasDuration ? parseFloat(durationMatch[1]) : null;
-
-        console.log(
-          `[${new Date().toISOString()}] [MANIFEST] Line ${lineNumber}: Found CUE-OUT tag: "${line}"`
-        );
-
-        isInAdBreak = true;
-        adPods = [];
-        currentAdBreak = {
-          id: `cue-${currentTime}`,
-          startTime: currentTime,
-          duration: duration,
-          endTime: duration ? currentTime + duration : null,
-          source: 'manifest-cue',
-          confirmedByTracking: false,
-          hasFiredStart: false,
-          hasFiredQ1: false,
-          hasFiredQ2: false,
-          hasFiredQ3: false,
-          hasFiredEnd: false,
-          hasDurationInTag: hasDuration,
-          pods: [], // Will contain individual ad pods
-        };
-
-        console.log(
-          `[${new Date().toISOString()}] [MANIFEST] Ad break started - startTime: ${currentTime}s, duration: ${
-            duration !== null ? duration + 's' : 'unknown (waiting for CUE-IN)'
-          }`
-        );
-      }
-
-      // Detect EXT-X-MAP tags (indicates start of new content/ad pod)
-      if (isInAdBreak && line.startsWith('#EXT-X-MAP:')) {
-        const mapUrlMatch = line.match(REGEX_MAP_URI);
-        const mapUrl = mapUrlMatch ? mapUrlMatch[1] : null;
-
-        // Check if this is a new ad pod (different MAP URL than content)
-        if (
-          mapUrl &&
-          mapUrl !== lastMapUrl &&
-          mapUrl.includes('mediatailor')
-        ) {
-          // Close previous pod if exists
-          if (currentPodStartTime !== null) {
-            const podDuration = currentTime - currentPodStartTime;
-            adPods.push({
-              startTime: currentPodStartTime,
-              duration: podDuration,
-              endTime: currentTime,
-              mapUrl: lastMapUrl,
-            });
-            console.log(
-              `[${new Date().toISOString()}] [MANIFEST] Ad pod detected - startTime: ${currentPodStartTime}s, duration: ${podDuration}s`
-            );
-          }
-
-          // Start new pod
-          currentPodStartTime = currentTime;
-          lastMapUrl = mapUrl;
-        }
-      }
-
-      // Detect CUE-IN tags (ad break end)
-      if (line.startsWith('#EXT-X-CUE-IN')) {
-        console.log(
-          `[${new Date().toISOString()}] [MANIFEST] Line ${lineNumber}: Found CUE-IN tag: "${line}" at time ${currentTime}s`,
-          currentAdBreak ? `(CUE-OUT was at ${currentAdBreak.startTime}s, duration will be ${currentTime - currentAdBreak.startTime}s)` : '(no matching CUE-OUT!)'
-        );
-
-        if (currentAdBreak) {
-          // Close final ad pod if exists
-          if (currentPodStartTime !== null) {
-            const podDuration = currentTime - currentPodStartTime;
-            adPods.push({
-              startTime: currentPodStartTime,
-              duration: podDuration,
-              endTime: currentTime,
-              mapUrl: lastMapUrl,
-            });
-            console.log(
-              `[${new Date().toISOString()}] [MANIFEST] Final ad pod detected - startTime: ${currentPodStartTime}s, duration: ${podDuration}s`
-            );
-          }
-
-          // Calculate actual ad break duration
-          const actualDuration = currentTime - currentAdBreak.startTime;
-          if (currentAdBreak.duration === null) {
-            console.log(
-              `[${new Date().toISOString()}] [MANIFEST] Calculated ad break duration from CUE-IN: ${actualDuration}s`
-            );
-            currentAdBreak.duration = actualDuration;
-            currentAdBreak.endTime = currentTime;
-          }
-
-          currentAdBreak.pods = adPods;
-
-          // If we have pods with MediaTailor segments, this is a confirmed real ad
-          // Don't wait for tracking API to start firing events
-          const hasMediaTailorSegments = adPods.some(
-            (pod) => pod.mapUrl && pod.mapUrl.includes('segments.mediatailor')
-          );
-
-          if (hasMediaTailorSegments) {
-            currentAdBreak.confirmedByTracking = true; // Trust manifest data
-            console.log(
-              `[${new Date().toISOString()}] [MANIFEST] Ad break has MediaTailor segments - marking as confirmed`
-            );
-          }
-
-          // NEW: If ad break has non-zero duration, consider it potentially valid
-          // (Don't immediately discard - let tracking API or actual playback confirm)
-          if (actualDuration > 0.1) {
-            console.log(
-              `[${new Date().toISOString()}] [MANIFEST] Ad break has non-zero duration (${actualDuration}s), marking as tentatively confirmed`
-            );
-            currentAdBreak.confirmedByTracking = true; // Trust non-zero duration ads
-          }
-
-          console.log(
-            `[${new Date().toISOString()}] [MANIFEST] Ad break finalized - startTime: ${
-              currentAdBreak.startTime
-            }s, duration: ${currentAdBreak.duration}s, podCount: ${
-              adPods.length
-            }, confirmed: ${currentAdBreak.confirmedByTracking}`
-          );
-
-          // Add completed ad break to list (even if not confirmed yet)
-          adBreaks.push(currentAdBreak);
-          currentAdBreak = null;
-          isInAdBreak = false;
-          currentPodStartTime = null;
-          lastMapUrl = null;
-          adPods = [];
-        } else {
-          console.log(
-            `[${new Date().toISOString()}] [MANIFEST] WARNING: CUE-IN without matching CUE-OUT`
-          );
-        }
-      }
-
-      // Track cumulative time via EXTINF
-      if (line.startsWith('#EXTINF:')) {
-        const segmentDuration = parseFloat(line.split(':')[1]);
-        currentTime += segmentDuration;
-      }
+    // Extract tracking URL from sessionized URL
+    this.trackingUrl = extractTrackingUrl(this.mediaTailorEndpoint);
+    if (this.trackingUrl) {
+      console.log(
+        `[MT - ${getTimestamp()}] Tracking URL extracted:`,
+        this.trackingUrl
+      );
+    } else {
+      console.warn(
+        `[MT - ${getTimestamp()}] No sessionId found - user must initialize session externally`
+      );
     }
 
-    // Handle case where CUE-OUT was found but no CUE-IN (shouldn't happen in VOD)
-    if (currentAdBreak) {
-      console.log(
-        `[${new Date().toISOString()}] [MANIFEST] WARNING: Ad break without CUE-IN tag, using default 30s duration`
-      );
-      currentAdBreak.duration = currentAdBreak.duration || 30;
-      currentAdBreak.endTime =
-        currentAdBreak.startTime + currentAdBreak.duration;
-      currentAdBreak.pods = adPods;
-      adBreaks.push(currentAdBreak);
-    }
-
-    console.log(
-      `[${new Date().toISOString()}] [MANIFEST] Parsing complete. Total ad breaks: ${
-        adBreaks.length
-      }, Total ad pods: ${adBreaks.reduce((sum, ab) => sum + ab.pods.length, 0)}`
-    );
-    console.log(
-      `[${new Date().toISOString()}] [MANIFEST] Ad breaks:`,
-      JSON.stringify(adBreaks, null, 2)
-    );
-    return adBreaks;
-  }
-
-  /**
-   * Loads the ad schedule from the tracking URL.
-   */
-  async loadTracker() {
-    try {
-      console.log(
-        `[${new Date().toISOString()}] Fetching ad schedule from: ${
-          this.trackingUrl
-        }`
-      );
-      const trackerResponse = await fetch(
-        `${this.trackingUrl}?t=${new Date().getTime()}`
-      );
-      if (!trackerResponse.ok) {
-        throw new Error(
-          `Failed to load tracking file: ${trackerResponse.status}`
-        );
-      }
-
-      const trackerData = await trackerResponse.json();
-      console.log(
-        `[${new Date().toISOString()}] MediaTailor tracking data received.`,
-        trackerData
-      );
-
-      if (trackerData.avails && trackerData.avails.length > 0) {
-        const trackingAds = trackerData.avails
-          .map((avail) => {
-            const firstAd =
-              avail.ads && avail.ads.length > 0 ? avail.ads[0] : null;
-            if (!firstAd) return null;
-
-            return {
-              id: avail.availId,
-              startTime: firstAd.startTimeInSeconds,
-              duration: avail.durationInSeconds,
-              endTime: firstAd.startTimeInSeconds + avail.durationInSeconds,
-              source: 'tracking-api',
-              confirmedByTracking: true, // Tracking API confirms this ad
-              hasFiredStart: false,
-              hasFiredQ1: false,
-              hasFiredQ2: false,
-              hasFiredQ3: false,
-              hasFiredEnd: false,
-            };
-          })
-          .filter(Boolean);
-
-        // NEW: Merge with existing manifest-based ads
-        // OPTIMIZATION: Use Map for O(1) lookup instead of O(N) find()
-        const adScheduleMap = new Map();
-        this.adSchedule.forEach((ad) => {
-          // Key by rounded start time (1s precision)
-          const key = Math.round(ad.startTime);
-          adScheduleMap.set(key, ad);
-        });
-
-        trackingAds.forEach((trackingAd) => {
-          // Find matching manifest ad (within 1 second tolerance)
-          const key = Math.round(trackingAd.startTime);
-          const existingAd = adScheduleMap.get(key);
-
-          if (existingAd) {
-            // Update existing ad with accurate tracking data
-            console.log(
-              `[${new Date().toISOString()}] [MERGE] Updating ad at ${
-                existingAd.startTime
-              }s with tracking data (was already confirmed: ${existingAd.confirmedByTracking})`
-            );
-            existingAd.id = trackingAd.id; // Real availId
-            // Only update duration if tracking API provides better data
-            // Keep manifest duration if it already has pods (more accurate)
-            if (!existingAd.pods || existingAd.pods.length === 0) {
-              existingAd.duration = trackingAd.duration;
-              existingAd.endTime = trackingAd.endTime;
-            }
-            existingAd.source = 'manifest+tracking'; // Combined source
-            existingAd.confirmedByTracking = true; // Ensure confirmed
-          } else {
-            // Add new ad from tracking that wasn't in manifest
-            console.log(
-              `[${new Date().toISOString()}] [MERGE] Adding new ad from tracking at ${
-                trackingAd.startTime
-              }s`
-            );
-            this.adSchedule.push(trackingAd);
-          }
-        });
-
-        // Sort by start time
-        this.adSchedule.sort((a, b) => a.startTime - b.startTime);
-
-        console.log(
-          `[${new Date().toISOString()}] [MERGE] Ad schedule updated with ${
-            this.adSchedule.length
-          } total ad break(s).`
-        );
-      } else {
-        console.log(
-          `[${new Date().toISOString()}] [TRACKING] Ad schedule loaded with 0 ad break(s).`
-        );
-
-        // Check if we have unconfirmed manifest ads (without MediaTailor segments)
-        const unconfirmedAds = this.adSchedule.filter(
-          (ad) => !ad.confirmedByTracking
-        );
-
-        if (unconfirmedAds.length > 0) {
-          console.log(
-            `[${new Date().toISOString()}] [TRACKING] Found ${
-              unconfirmedAds.length
-            } unconfirmed manifest ad(s) without MediaTailor segments`
-          );
-
-          // Only retry for ads without MediaTailor segments (might be placeholder CUE tags)
-          if (this.config.retryAttempts > 0) {
-            console.log(
-              `[${new Date().toISOString()}] [TRACKING] Retrying in ${
-                this.config.retryDelay
-              }ms... (${this.config.retryAttempts} attempts left)`
-            );
-            this.config.retryAttempts--;
-            setTimeout(() => this.loadTracker(), this.config.retryDelay);
-            return; // Return early to avoid starting polling before retries complete
-          } else {
-            // No more retries, remove unconfirmed ads as they're likely false positives
-            console.log(
-              `[${new Date().toISOString()}] [TRACKING] Retry attempts exhausted. Removing ${
-                unconfirmedAds.length
-              } unconfirmed ad(s) (false positives - CUE tags without actual ad content)`
-            );
-            this.adSchedule = this.adSchedule.filter(
-              (ad) => ad.confirmedByTracking
-            );
-          }
-        }
-      }
-
-      // NEW: Check if this is a live stream and start polling
-      this.checkAndStartLivePolling();
-    } catch (error) {
-      Log.error('Error loading MediaTailor tracker:', error);
-      this.sendError(error);
+    // Set up format-specific tracking
+    if (this.streamType === STREAM_TYPE.VOD) {
+      this.setupVODTracking();
+    } else {
+      this.setupLiveTracking();
     }
   }
 
   /**
-   * Starts manifest polling (for both VOD and live)
+   * Register listeners (overrides parent class method)
    */
-  startManifestPolling() {
-    if (this.manifestPollTimer) {
-      console.log(
-        `[${new Date().toISOString()}] [POLLING] Manifest polling already active`
-      );
-      return;
-    }
+  registerListeners() {
+    super.registerListeners();
 
-    console.log(
-      `[${new Date().toISOString()}] [POLLING] Polling manifest once for pre-roll ads...`
-    );
-
-    // Poll immediately to catch pre-roll ads
-    this.pollManifestForNewAds();
-
-    // Poll once more after interval to give MediaTailor time to insert ads
-    this.manifestPollTimer = setTimeout(() => {
-      console.log(
-        `[${new Date().toISOString()}] [POLLING] Retry polling manifest one more time...`
-      );
-      this.pollManifestForNewAds();
-      this.manifestPollTimer = null; // Clear timer after single retry
-    }, this.config.manifestPollInterval);
+    // Bind MediaTailor-specific event listeners
+    this.player.on('pause', this.onPause.bind(this));
+    this.player.on('playing', this.onPlaying.bind(this));
+    this.player.on('seeking', this.onSeeking.bind(this));
+    this.player.on('seeked', this.onSeeked.bind(this));
+    this.player.on('waiting', this.onWaiting.bind(this));
+    this.player.on('ended', this.onEnded.bind(this));
+    this.player.on('timeupdate', this.onTimeUpdate.bind(this));
+    console.log(`[MT - ${getTimestamp()}] Event listeners registered`);
   }
 
   /**
-   * Checks if stream is live and starts polling if needed
+   * Unregister listeners (overrides parent class method)
    */
-  checkAndStartLivePolling() {
-    const isLive = this.player.duration() === Infinity;
-
-    // Start manifest polling if not already started
-    if (this.config.enableManifestParsing && !this.manifestPollTimer) {
-      this.startManifestPolling();
-    }
-
-    // Only poll tracking API for live streams (VOD tracking is static)
-    if (isLive && !this.trackingPollTimer) {
-      console.log(
-        `[${new Date().toISOString()}] [POLLING] Live stream detected, starting tracking API polling`
-      );
-      this.trackingPollTimer = setInterval(() => {
-        this.loadTracker();
-      }, this.config.trackingPollInterval);
-    }
-
-    this.isPolling = true;
-  }
-
-  /**
-   * Polls manifest for new ads (for both VOD and live)
-   */
-  async pollManifestForNewAds() {
-    try {
-      console.log(
-        `[${new Date().toISOString()}] [POLLING] Refreshing manifest for ads...`
-      );
-
-      // Use session manifest URL if available, otherwise fall back to current src
-      const manifestUrl = this.sessionManifestUrl || this.player.currentSrc();
-      console.log(
-        `[${new Date().toISOString()}] [POLLING] Fetching from URL:`,
-        manifestUrl
-      );
-      console.log(
-        `[${new Date().toISOString()}] [POLLING] Player currentSrc:`,
-        this.player.currentSrc()
-      );
-
-      const newAds = await this.parseManifestForAds(manifestUrl);
-
-      console.log(
-        `[${new Date().toISOString()}] [POLLING] Found ${
-          newAds.length
-        } ads in latest manifest`
-      );
-
-      if (newAds.length === 0) return;
-
-      // Merge new ads into existing schedule
-      // OPTIMIZATION: Use Map for O(1) lookup
-      const adScheduleMap = new Map();
-      this.adSchedule.forEach((ad) => {
-        const key = Math.round(ad.startTime);
-        adScheduleMap.set(key, ad);
-      });
-
-      newAds.forEach((newAd) => {
-        const key = Math.round(newAd.startTime);
-        const exists = adScheduleMap.get(key);
-
-        if (!exists) {
-          console.log(
-            `[${new Date().toISOString()}] [POLLING] New ad discovered at ${
-              newAd.startTime
-            }s, duration: ${newAd.duration}s, confirmed: ${
-              newAd.confirmedByTracking
-            }`,
-            newAd
-          );
-          this.adSchedule.push(newAd);
-        } else if (!exists.confirmedByTracking && newAd.confirmedByTracking) {
-          // Update existing unconfirmed ad if new one has confirmation
-          console.log(
-            `[${new Date().toISOString()}] [POLLING] Updating ad at ${
-              exists.startTime
-            }s - now confirmed with duration ${newAd.duration}s`
-          );
-          exists.duration = newAd.duration;
-          exists.endTime = newAd.endTime;
-          exists.pods = newAd.pods;
-          exists.confirmedByTracking = true;
-        }
-      });
-
-      // Sort by start time
-      this.adSchedule.sort((a, b) => a.startTime - b.startTime);
-
-      console.log(
-        `[${new Date().toISOString()}] [POLLING] Total ads in schedule: ${
-          this.adSchedule.length
-        }`
-      );
-    } catch (error) {
-      Log.error('[POLLING] Error polling manifest:', error);
-    }
+  unregisterListeners() {
+    super.unregisterListeners();
+    this.player.off('pause', this.onPause);
+    this.player.off('playing', this.onPlaying);
+    this.player.off('seeking', this.onSeeking);
+    this.player.off('seeked', this.onSeeked);
+    this.player.off('waiting', this.onWaiting);
+    this.player.off('ended', this.onEnded);
+    this.player.off('timeupdate', this.onTimeUpdate);
+    this.stopLivePolling();
   }
 
   /**
@@ -793,245 +216,808 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       clearInterval(this.trackingPollTimer);
       this.trackingPollTimer = null;
     }
-
-    this.isPolling = false;
-    console.log(`[${new Date().toISOString()}] [POLLING] Stopped all polling`);
   }
 
   /**
-   * Helper to track quartiles for an ad or pod
-   * @param {object} adObject - The ad or pod object
-   * @param {number} progress - Current progress in seconds
-   * @param {string} type - 'pod' or 'ad' for logging
+   * Sets up VOD tracking (single parse, no polling)
    */
-  trackQuartiles(adObject, progress, type = 'ad') {
-    const duration = adObject.duration;
-    const q1 = duration * 0.25;
-    const q2 = duration * 0.5;
-    const q3 = duration * 0.75;
-
-    if (progress >= q1 && !adObject.hasFiredQ1) {
-      console.log(
-        `[${new Date().toISOString()}] MediaTailor: Sending AD_QUARTILE 1 (${type})`
-      );
-      this.sendAdQuartile({ quartile: 1 });
-      adObject.hasFiredQ1 = true;
-    }
-    if (progress >= q2 && !adObject.hasFiredQ2) {
-      console.log(
-        `[${new Date().toISOString()}] MediaTailor: Sending AD_QUARTILE 2 (${type})`
-      );
-      this.sendAdQuartile({ quartile: 2 });
-      adObject.hasFiredQ2 = true;
-    }
-    if (progress >= q3 && !adObject.hasFiredQ3) {
-      console.log(
-        `[${new Date().toISOString()}] MediaTailor: Sending AD_QUARTILE 3 (${type})`
-      );
-      this.sendAdQuartile({ quartile: 3 });
-      adObject.hasFiredQ3 = true;
-    }
+  setupVODTracking() {
+    console.log(`[MT - ${getTimestamp()}] VOD mode: Single manifest parse`);
+    this.hookPlayerManifest();
   }
 
   /**
-   * Called on 'timeupdate' event. It will check the current time and track ad events.
+   * Sets up Live tracking (continuous polling)
    */
-  onTimeUpdate() {
-    // Session should already be initialized from constructor
-    if (!this.sessionInitialized) {
-      return;
-    }
+  setupLiveTracking() {
+    console.log(`[MT - ${getTimestamp()}] Live mode: Continuous polling`);
+    this.hookPlayerManifest();
 
-    if (!this.player || !this.adSchedule || !this.adSchedule.length) {
-      return;
-    }
-    const currentTime = this.player.currentTime();
+    // AWS best practice: Poll at manifest target duration interval
+    const manifestInterval = this.manifestTargetDuration
+      ? this.manifestTargetDuration * 1000
+      : this.config.liveManifestPollInterval;
 
-    // OPTIMIZATION: Prune old ads occasionally (every ~5 mins of content)
-    // Simple check: if first ad is very old, remove it
-    if (
-      this.adSchedule.length > 50 &&
-      this.adSchedule[0].endTime < currentTime - 300
-    ) {
-      this.adSchedule.shift(); // Remove oldest
-    }
+    const trackingInterval = this.manifestTargetDuration
+      ? this.manifestTargetDuration * 1000
+      : this.config.liveTrackingPollInterval;
 
-    const activeAdBreak = this.adSchedule.find(
-      (ad) =>
-        currentTime >= ad.startTime &&
-        currentTime < ad.endTime &&
-        ad.confirmedByTracking // Only use confirmed ads
+    // Start polling timers
+    this.manifestPollTimer = setInterval(() => {
+      this.pollManifestForNewAds();
+    }, manifestInterval);
+
+    this.trackingPollTimer = setInterval(() => {
+      this.getAndProcessTrackingMetadata();
+    }, trackingInterval);
+
+    console.log(`[MT - ${getTimestamp()}] Live polling started`, {
+      manifestInterval,
+      trackingInterval,
+    });
+  }
+
+  /**
+   * Updates live polling intervals after target duration detected
+   */
+  updateLivePollingIntervals() {
+    if (!this.manifestTargetDuration) return;
+
+    const newInterval = this.manifestTargetDuration * 1000;
+    console.log(
+      `[MT - ${getTimestamp()}] Updating polling to target duration: ${this.manifestTargetDuration}s`
     );
 
-    if (activeAdBreak) {
-      // --- We are INSIDE an ad break ---
+    // Restart timers with new interval
+    if (this.manifestPollTimer) clearInterval(this.manifestPollTimer);
+    if (this.trackingPollTimer) clearInterval(this.trackingPollTimer);
 
-      // Fire AD_BREAK_START only once per ad break
+    this.manifestPollTimer = setInterval(() => {
+      this.pollManifestForNewAds();
+    }, newInterval);
+
+    this.trackingPollTimer = setInterval(() => {
+      this.getAndProcessTrackingMetadata();
+    }, newInterval);
+  }
+
+  /**
+   * Hooks into player's manifest loading (zero race condition)
+   * Supports: VHS, Native HLS, contrib-hls, Shaka, dash.js
+   */
+  hookPlayerManifest() {
+    if (!this.config.enableManifestParsing) {
+      console.log(`[MT - ${getTimestamp()}] Manifest parsing disabled`);
+      return;
+    }
+
+    const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+    if (!tech) {
+      console.log(`[MT - ${getTimestamp()}] No tech - using fallback fetch`);
+      this.getManifestDirectly();
+      return;
+    }
+
+    // Try hooks in order of preference
+    if (this.manifestType === MANIFEST_TYPE.HLS) {
+      if (
+        this.hookHLSViaVHS(tech) ||
+        this.hookHLSViaNative(tech) ||
+        this.hookHLSViaContribHls(tech)
+      ) {
+        return; // Successfully hooked
+      }
+    } else if (this.manifestType === MANIFEST_TYPE.DASH) {
+      if (this.hookDASHViaShaka(tech) || this.hookDASHViaDashJs(tech)) {
+        return; // Successfully hooked
+      }
+    }
+
+    // Fallback: Direct manifest fetch
+    console.log(`[MT - ${getTimestamp()}] Using fallback: direct manifest fetch`);
+    this.getManifestDirectly();
+  }
+
+  /**
+   * Hook: VHS (videojs-http-streaming) - Video.js 7.0+
+   */
+  hookHLSViaVHS(tech) {
+    if (!tech.vhs || !tech.vhs.playlists) return false;
+
+    console.log(`[MT - ${getTimestamp()}] Hooked: VHS`);
+
+    // Parse already-loaded playlist
+    const currentPlaylist = tech.vhs.playlists.media();
+    if (currentPlaylist && currentPlaylist.segments && currentPlaylist.segments.length > 0) {
+      console.log(`[MT - ${getTimestamp()}] Parsing existing playlist`);
+      this.parseVHSPlaylist(currentPlaylist);
+    }
+
+    // Hook future playlist loads
+    tech.vhs.on('loadedplaylist', () => {
+      const playlist = tech.vhs.playlists.media();
+      if (playlist) {
+        this.parseVHSPlaylist(playlist);
+      }
+    });
+
+    return true;
+  }
+
+  /**
+   * Hook: Native HLS (Safari)
+   */
+  hookHLSViaNative(tech) {
+    // Safari uses native HLS - can't hook directly
+    if (
+      tech.el_ &&
+      tech.el_.canPlayType &&
+      tech.el_.canPlayType('application/vnd.apple.mpegurl')
+    ) {
+      console.log(`[MT - ${getTimestamp()}] Native HLS detected - using fallback`);
+      this.getManifestDirectly();
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Hook: videojs-contrib-hls (legacy Video.js 5.x/6.x)
+   */
+  hookHLSViaContribHls(tech) {
+    if (!tech.hls || !tech.hls.playlists) return false;
+
+    console.log(`[MT - ${getTimestamp()}] Hooked: contrib-hls (legacy)`);
+
+    // Parse already-loaded playlist
+    const currentPlaylist = tech.hls.playlists.media();
+    if (currentPlaylist && currentPlaylist.segments && currentPlaylist.segments.length > 0) {
+      this.parseVHSPlaylist(currentPlaylist);
+    }
+
+    // Hook future playlist loads
+    tech.hls.on('loadedplaylist', () => {
+      const playlist = tech.hls.playlists.media();
+      if (playlist) {
+        this.parseVHSPlaylist(playlist);
+      }
+    });
+
+    return true;
+  }
+
+  /**
+   * Hook: Shaka Player (DASH)
+   */
+  hookDASHViaShaka(tech) {
+    if (!tech.shakaPlayer) return false;
+
+    console.log(`[MT - ${getTimestamp()}] Hooked: Shaka Player`);
+    tech.shakaPlayer.addEventListener('emsg', (event) => {
+      this.handleDASHEmsgEvent(event);
+    });
+
+    return true;
+  }
+
+  /**
+   * Hook: dash.js (DASH)
+   */
+  hookDASHViaDashJs(tech) {
+    if (!tech.dash || !tech.dash.on) return false;
+
+    console.log(`[MT - ${getTimestamp()}] Hooked: dash.js`);
+    tech.dash.on('EVENT_MODE_ON_RECEIVE', (event) => {
+      this.handleDASHEventStream(event);
+    });
+
+    return true;
+  }
+
+  /**
+   * Fetches manifest directly (fallback when hooks unavailable)
+   */
+  async getManifestDirectly() {
+    console.log(`[MT - ${getTimestamp()}] Fallback: fetching manifest directly`);
+
+    try {
+      const manifestUrl = this.mediaTailorEndpoint;
+
+      if (this.manifestType === MANIFEST_TYPE.HLS) {
+        await this.getAndParseHLSManifest(manifestUrl);
+      } else if (this.manifestType === MANIFEST_TYPE.DASH) {
+        await this.getAndParseDASHManifest(manifestUrl);
+      }
+    } catch (error) {
+      console.log(`[MT - ${getTimestamp()}] Fallback fetch error:`, error);
+    }
+  }
+
+  /**
+   * Fetches and parses HLS master + media manifest
+   */
+  async getAndParseHLSManifest(manifestUrl) {
+    try {
+      console.log(`[MT - ${getTimestamp()}] Fetching HLS master manifest`);
+
+      // Fetch master manifest
+      const { mediaPlaylistUrl } = await getHLSMasterManifest(manifestUrl);
+
+      if (!mediaPlaylistUrl) {
+        console.log(`[MT - ${getTimestamp()}] No media playlist found`);
+        return;
+      }
+
+      console.log(`[MT - ${getTimestamp()}] Fetching media playlist`);
+
+      // Fetch media playlist
+      const mediaText = await getHLSMediaPlaylist(mediaPlaylistUrl);
+
+      // Parse for ads
+      const ads = parseHLSManifestForAds(mediaText);
+      if (ads.length > 0) {
+        console.log(`[MT - ${getTimestamp()}] Detected ${ads.length} ad break(s)`);
+        this.mergeNewAds(ads);
+      }
+    } catch (error) {
+      console.log(`[MT - ${getTimestamp()}] HLS fetch error:`, error);
+    }
+  }
+
+  /**
+   * Fetches and parses DASH MPD manifest
+   */
+  async getAndParseDASHManifest(manifestUrl) {
+    try {
+      console.log(`[MT - ${getTimestamp()}] Fetching DASH manifest`);
+
+      // Fetch DASH manifest
+      const xmlText = await getDASHManifest(manifestUrl);
+
+      // Parse for ads
+      const ads = parseDASHManifestForAds(xmlText);
+
+      console.log(`[MT - ${getTimestamp()}] DASH: ${ads.length} ad break(s) found`);
+
+      if (ads.length > 0) {
+        this.mergeNewAds(ads);
+      }
+    } catch (error) {
+      console.log(`[MT - ${getTimestamp()}] DASH fetch error:`, error);
+    }
+  }
+
+  /**
+   * Handles DASH emsg events from Shaka Player
+   */
+  handleDASHEmsgEvent(event) {
+    console.log(`[MT - ${getTimestamp()}] DASH emsg event:`, event);
+    // TODO: Full SCTE-35 parsing
+  }
+
+  /**
+   * Handles DASH event stream from dash.js
+   */
+  handleDASHEventStream(event) {
+    console.log(`[MT - ${getTimestamp()}] DASH event stream:`, event);
+    // TODO: Full SCTE-35 parsing
+  }
+
+  /**
+   * Parses VHS playlist object for ads
+   */
+  parseVHSPlaylist(playlist) {
+    console.log(
+      `[MT - ${getTimestamp()}] Parsing VHS playlist (${
+        playlist.segments?.length || 0
+      } segments)`
+    );
+
+    if (!playlist.segments || playlist.segments.length === 0) {
+      console.log(`[MT - ${getTimestamp()}] No segments in playlist`);
+      return;
+    }
+
+    // VHS strips CUE tags - detect via discontinuityStarts + MediaTailor segments
+    const ads = detectAdsFromVHSPlaylist(playlist);
+
+    if (ads.length > 0) {
+      console.log(
+        `[MT - ${getTimestamp()}] VHS detected ${ads.length} ad break(s), ${ads.reduce(
+          (sum, ab) => sum + ab.pods.length,
+          0
+        )} pod(s)`
+      );
+      this.mergeNewAds(ads);
+    } else {
+      console.log(`[MT - ${getTimestamp()}] No ads detected in VHS playlist`);
+    }
+  }
+
+  /**
+   * Polls manifest for new ads (Live streams only)
+   */
+  async pollManifestForNewAds() {
+    if (this.isDisposed) return;
+
+    if (this.isFetchingManifest) {
+      console.log(`[MT - ${getTimestamp()}] Manifest fetch already in progress, skipping`);
+      return;
+    }
+
+    this.isFetchingManifest = true;
+
+    try {
+      const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+      if (tech && tech.vhs) {
+        const playlist = tech.vhs.playlists.media();
+        if (playlist) {
+          this.parseVHSPlaylist(playlist);
+        }
+      }
+    } catch (error) {
+      console.log(`[MT - ${getTimestamp()}] Manifest poll error:`, error);
+    } finally {
+      this.isFetchingManifest = false;
+    }
+  }
+
+  /**
+   * Merges new ads into schedule (deduplicates)
+   */
+  mergeNewAds(newAds) {
+    this.adSchedule = mergeAdSchedules(this.adSchedule, newAds);
+
+    console.log(
+      `[MT - ${getTimestamp()}] Ad schedule: ${this.adSchedule.length} ad break(s)`
+    );
+
+    // VOD: Fetch tracking metadata after first manifest parse (AWS best practice)
+    if (
+      this.streamType === STREAM_TYPE.VOD &&
+      this.trackingUrl &&
+      !this.hasAttemptedTrackingFetch
+    ) {
+      this.hasAttemptedTrackingFetch = true;
+      console.log(
+        `[MT - ${getTimestamp()}] Fetching tracking metadata (first manifest parse)`
+      );
+      this.getAndProcessTrackingMetadata();
+    }
+  }
+
+  /**
+   * Fetches and processes tracking metadata from AWS MediaTailor Tracking API
+   */
+  async getAndProcessTrackingMetadata() {
+    if (this.isDisposed || !this.trackingUrl) return;
+
+    if (this.isFetchingTracking) {
+      console.log(`[MT - ${getTimestamp()}] Tracking fetch already in progress, skipping`);
+      return;
+    }
+
+    this.isFetchingTracking = true;
+
+    try {
+      console.log(`[MT - ${getTimestamp()}] Fetching tracking metadata`);
+
+      this.trackingAbortController = new AbortController();
+
+      const data = await getTrackingMetadata(
+        this.trackingUrl,
+        this.config.trackingAPITimeout,
+        this.trackingAbortController.signal
+      );
+
+      if (this.isDisposed) {
+        console.log(`[MT - ${getTimestamp()}] Disposed during tracking fetch, ignoring result`);
+        return;
+      }
+
+      if (data.avails && data.avails.length > 0) {
+        console.log(
+          `[MT - ${getTimestamp()}] Enriching with ${data.avails.length} avail(s)`
+        );
+        this.enrichWithTrackingMetadata(data.avails);
+        this.trackingFetchRetries = 0;
+      } else {
+        console.log(`[MT - ${getTimestamp()}] Tracking API returned 0 avails`);
+      }
+    } catch (error) {
+      if (error.name === 'AbortError' || this.isDisposed) {
+        console.log(`[MT - ${getTimestamp()}] Tracking fetch aborted`);
+        return;
+      }
+
+      console.log(
+        `[MT - ${getTimestamp()}] Tracking API error: ${error.message}`,
+        error
+      );
+
+      if (this.trackingFetchRetries < this.maxTrackingRetries) {
+        this.trackingFetchRetries++;
+        console.log(
+          `[MT - ${getTimestamp()}] Retrying tracking fetch (${this.trackingFetchRetries}/${this.maxTrackingRetries})`
+        );
+        this.isFetchingTracking = false;
+        await this.getAndProcessTrackingMetadata();
+        return;
+      }
+
+      console.log(
+        `[MT - ${getTimestamp()}] Max retries reached, continuing with manifest data only`
+      );
+    } finally {
+      this.isFetchingTracking = false;
+      this.trackingAbortController = null;
+    }
+  }
+
+  /**
+   * Enriches ad schedule with tracking API metadata
+   */
+  enrichWithTrackingMetadata(avails) {
+    const newAds = enrichScheduleWithTracking(this.adSchedule, avails);
+
+    // Add any new ads from tracking
+    if (newAds.length > 0) {
+      this.adSchedule.push(...newAds);
+      this.adSchedule.sort((a, b) => a.startTime - b.startTime);
+    }
+
+    console.log(
+      `[MT - ${getTimestamp()}] Enrichment complete: ${
+        this.adSchedule.length
+      } ad break(s)`
+    );
+
+    // Log enriched schedule with full details
+    console.log(
+      `[MT - ${getTimestamp()}] Enriched schedule:`,
+      this.adSchedule.map((ab) => ({
+        id: ab.id,
+        startTime: ab.startTime,
+        endTime: ab.endTime,
+        duration: ab.duration,
+        title: ab.title,
+        podCount: ab.pods.length,
+        pods: ab.pods.map((p) => ({
+          title: p.title,
+          startTime: p.startTime,
+          endTime: p.endTime,
+          duration: p.duration,
+        })),
+      }))
+    );
+
+    // Log current player time for debugging
+    console.log(
+      `[MT - ${getTimestamp()}] Current player time: ${this.player.currentTime()}s`
+    );
+  }
+
+  /**
+   * Tracks quartile events for active pod/ad
+   */
+  trackQuartiles(adObject, progress) {
+    if (!adObject.duration || adObject.duration <= 0) return;
+
+    const quartilesToFire = getQuartilesToFire(progress, adObject.duration, {
+      q1: adObject.hasFiredQ1,
+      q2: adObject.hasFiredQ2,
+      q3: adObject.hasFiredQ3,
+    });
+
+    quartilesToFire.forEach(({ quartile, key }) => {
+      console.log(`[MT - ${getTimestamp()}] → AD_QUARTILE ${quartile * 25}%`);
+      this.sendAdQuartile({ quartile });
+      adObject[`hasFired${key.toUpperCase()}`] = true;
+    });
+  }
+
+  /**
+   * Called on timeupdate - main event tracking logic
+   */
+  onTimeUpdate() {
+    const currentTime = this.player.currentTime();
+    const activeAdBreak = findActiveAdBreak(this.adSchedule, currentTime);
+
+    // Debug logging (only log when schedule exists and every 5 seconds)
+    if (this.adSchedule.length > 0 && Math.floor(currentTime) % 5 === 0 && Math.floor(currentTime * 10) % 10 === 0) {
+      console.log(
+        `[MT - ${getTimestamp()}] TimeUpdate: ${currentTime.toFixed(2)}s, Active break: ${
+          activeAdBreak ? activeAdBreak.id : 'none'
+        }, Schedule count: ${this.adSchedule.length}`
+      );
+    }
+
+    if (activeAdBreak) {
+      // === INSIDE AD BREAK ===
+
+      // Fire AD_BREAK_START once
       if (!activeAdBreak.hasFiredStart) {
         this.currentAdBreak = activeAdBreak;
-        console.log(
-          `[${new Date().toISOString()}] MediaTailor: Sending AD_BREAK_START`,
-          {
-            isAd: this.isAd(),
-            adBreak: activeAdBreak,
-            podCount: activeAdBreak.pods?.length || 0,
-          }
+        this.setIsAd(true); // Switch to ad mode
+        console.log(`[MT - ${getTimestamp()}] setIsAd(true) - Entering ad break`);
+
+        // Calculate ad position by finding index based on startTime
+        const adBreakIndex = this.adSchedule.findIndex(
+          (ad) => Math.abs(ad.startTime - activeAdBreak.startTime) < 0.5
         );
+        const adPosition = determineAdPosition(
+          adBreakIndex,
+          this.adSchedule.length,
+          this.streamType
+        );
+
+        // Store position on the ad break for reuse
+        activeAdBreak.adPosition = adPosition;
+
+        console.log(`[MT - ${getTimestamp()}] → AD_BREAK_START`, {
+          startTime: activeAdBreak.startTime,
+          duration: activeAdBreak.duration,
+          podCount: activeAdBreak.pods?.length || 0,
+          position: adPosition,
+          breakIndex: adBreakIndex,
+          totalBreaks: this.adSchedule.length,
+        });
         this.sendAdBreakStart();
         activeAdBreak.hasFiredStart = true;
       }
 
-      // Check if we have pod information
+      // Check for pod-level tracking
       if (activeAdBreak.pods && activeAdBreak.pods.length > 0) {
-        // Find current active pod
-        const activePod = activeAdBreak.pods.find(
-          (pod) => currentTime >= pod.startTime && currentTime < pod.endTime
-        );
+        const activePod = findActivePod(activeAdBreak, currentTime);
 
         if (activePod) {
-          // Check if we're entering a new pod
+          // Entering new pod
           if (!this.currentAdPod || this.currentAdPod !== activePod) {
-            // End previous pod if exists
+            // End previous pod
             if (this.currentAdPod) {
-              console.log(
-                `[${new Date().toISOString()}] MediaTailor: Sending AD_END (pod transition)`,
-                {
-                  podStartTime: this.currentAdPod.startTime,
-                  podDuration: this.currentAdPod.duration,
-                }
-              );
+              console.log(`[MT - ${getTimestamp()}] → AD_END (pod transition)`);
               this.sendEnd();
             }
 
             // Start new pod
             this.currentAdPod = activePod;
-            console.log(
-              `[${new Date().toISOString()}] MediaTailor: Sending AD_START (new pod)`,
-              {
-                podStartTime: activePod.startTime,
-                podDuration: activePod.duration,
-              }
-            );
-            this.sendStart();
+
+            console.log(`[MT - ${getTimestamp()}] → AD_START (new pod)`, {
+              startTime: activePod.startTime,
+              duration: activePod.duration,
+              position: activeAdBreak.adPosition,
+            });
+
+            // Send AD_REQUEST before AD_START (required sequence)
+            this.sendRequest({
+              adPartner: 'aws-mediatailor',
+              adPosition: activeAdBreak.adPosition,
+            });
+
+            // Send AD_START
+            this.sendStart({
+              adPartner: 'aws-mediatailor',
+              adPosition: activeAdBreak.adPosition,
+            });
             activePod.hasFiredStart = true;
           }
 
-          // Track quartiles for current pod
+          // Track quartiles for pod
           const podProgress = currentTime - activePod.startTime;
-          this.trackQuartiles(activePod, podProgress, 'pod');
+          this.trackQuartiles(activePod, podProgress);
         }
       } else {
-        // No pod information, treat entire ad break as single ad (legacy behavior)
+        // No pods - treat entire break as single ad
         if (!activeAdBreak.hasFiredAdStart) {
-          console.log(
-            `[${new Date().toISOString()}] MediaTailor: Sending AD_START (no pods)`,
-            {
-              adBreakStartTime: activeAdBreak.startTime,
-              adBreakDuration: activeAdBreak.duration,
-            }
-          );
-          this.sendStart();
+          console.log(`[MT - ${getTimestamp()}] → AD_START (no pods)`, {
+            startTime: activeAdBreak.startTime,
+            duration: activeAdBreak.duration,
+            position: activeAdBreak.adPosition,
+          });
+
+          // Send AD_REQUEST before AD_START (required sequence)
+          this.sendRequest({
+            adPartner: 'aws-mediatailor',
+            adPosition: activeAdBreak.adPosition,
+          });
+
+          // Send AD_START
+          this.sendStart({
+            adPartner: 'aws-mediatailor',
+            adPosition: activeAdBreak.adPosition,
+          });
           activeAdBreak.hasFiredAdStart = true;
         }
 
-        // Track quartiles for entire ad break
+        // Track quartiles for entire break
         const adProgress = currentTime - activeAdBreak.startTime;
-        this.trackQuartiles(activeAdBreak, adProgress, 'adBreak');
+        this.trackQuartiles(activeAdBreak, adProgress);
       }
     } else if (this.currentAdBreak) {
-      // --- We just EXITED an ad break ---
+      // === EXITING AD BREAK ===
 
-      // End the last pod if exists
+      // End last pod
       if (this.currentAdPod) {
-        console.log(
-          `[${new Date().toISOString()}] MediaTailor: Sending AD_END (final pod)`,
-          {
-            podStartTime: this.currentAdPod.startTime,
-            podDuration: this.currentAdPod.duration,
-          }
-        );
+        console.log(`[MT - ${getTimestamp()}] → AD_END (final pod)`);
         this.sendEnd();
         this.currentAdPod = null;
       }
 
-      // End the ad break
+      // End ad break
       if (!this.currentAdBreak.hasFiredEnd) {
-        console.log(
-          `[${new Date().toISOString()}] MediaTailor: Sending AD_BREAK_END`,
-          {
-            isAd: this.isAd(),
-          }
-        );
+        console.log(`[MT - ${getTimestamp()}] → AD_BREAK_END`);
         this.sendAdBreakEnd();
         this.currentAdBreak.hasFiredEnd = true;
-        if (this.player.controlBar && this.player.controlBar.progressControl) {
-          this.player.controlBar.progressControl.enable();
-        }
       }
+
       this.currentAdBreak = null;
+      this.setIsAd(false); // Switch back to content mode
+      console.log(`[MT - ${getTimestamp()}] setIsAd(false) - Exiting ad break`);
+
+      // Check if video has ended after exiting last ad break
+      if (this.player.ended() && !this.hasEndedContent) {
+        console.log(`[MT - ${getTimestamp()}] Video ended after last ad → CONTENT_END`);
+        this.sendContentEnd();
+        this.hasEndedContent = true;
+      }
     }
   }
 
   /**
-   * Register listeners.
+   * Sends CONTENT_END event via parent content tracker
    */
-  registerListeners() {
-    super.registerListeners();
-    this.player.on('timeupdate', this.onTimeUpdate.bind(this));
-    // Session initialization will happen on first timeupdate
+  sendContentEnd() {
+    if (this.parentTracker) {
+      this.parentTracker.sendEnd();
+    } else {
+      super.sendEnd();
+    }
   }
 
   /**
-   * Unregister listeners.
+   * Generic handler for ad events - only fires if currently in an ad break
+   * @param {string} eventName - The event name for logging (e.g., 'AD_PAUSE')
+   * @param {Function} sendMethod - The method to call (e.g., this.sendPause)
    */
-  unregisterListeners() {
-    super.unregisterListeners();
-    this.player.off('timeupdate', this.onTimeUpdate);
-    this.stopLivePolling(); // NEW: Stop polling on cleanup
+  handleAdEvent(eventName, sendMethod) {
+    if (this.isAd()) {
+      console.log(`[MT - ${getTimestamp()}] → ${eventName}`);
+      sendMethod.call(this);
+    }
   }
 
   /**
-   * Cleanup method - called when tracker is destroyed
+   * Handle pause events - sends AD_PAUSE only when ads are playing
    */
-  dispose() {
-    this.stopLivePolling();
-    super.dispose && super.dispose();
+  onPause() {
+    this.handleAdEvent('AD_PAUSE', this.sendPause);
   }
 
   /**
-   * Returns the ad title
-   * @returns {string} Ad title
+   * Handle playing events - sends AD_RESUME only when ads are playing
+   */
+  onPlaying() {
+    if (this.isAd()) {
+      console.log(`[MT - ${getTimestamp()}] → AD_RESUME`);
+      this.sendResume();
+      this.sendBufferEnd(); // Playing event also ends any buffering
+    }
+  }
+
+  /**
+   * Handle seeking events - sends AD_SEEK_START only when ads are playing
+   */
+  onSeeking() {
+    this.handleAdEvent('AD_SEEK_START', this.sendSeekStart);
+  }
+
+  /**
+   * Handle seeked events - sends AD_SEEK_END only when ads are playing
+   */
+  onSeeked() {
+    this.handleAdEvent('AD_SEEK_END', this.sendSeekEnd);
+  }
+
+  /**
+   * Handle waiting (buffering) events - sends AD_BUFFER_START only when ads are playing
+   */
+  onWaiting() {
+    this.handleAdEvent('AD_BUFFER_START', this.sendBufferStart);
+  }
+
+  /**
+   * Override: Fire CONTENT_END when video ends
+   */
+  onEnded() {
+    if (!this.hasEndedContent) {
+      console.log(`[MT - ${getTimestamp()}] Video ended → CONTENT_END`);
+      this.sendContentEnd();
+      this.hasEndedContent = true;
+    }
+  }
+
+  /**
+   * Returns ad title for New Relic
    */
   getTitle() {
-    return this.currentAdBreak ? this.currentAdBreak.id : null;
+    if (this.currentAdPod) {
+      return this.currentAdPod.title || this.currentAdBreak?.id || null;
+    }
+    return this.currentAdBreak?.title || this.currentAdBreak?.id || null;
   }
 
   /**
-   * Returns the ad duration
-   * @returns {number} Ad duration in milliseconds
+   * Returns ad ID for New Relic (adId attribute)
+   */
+  getVideoId() {
+    if (this.currentAdPod) {
+      return (
+        this.currentAdPod.creativeId ||
+        this.currentAdPod.title ||
+        this.currentAdBreak?.id ||
+        null
+      );
+    }
+    return this.currentAdBreak?.creativeId || this.currentAdBreak?.id || null;
+  }
+
+  /**
+   * Returns ad source URL for New Relic (adSrc attribute)
+   */
+  getSrc() {
+    // MediaTailor doesn't provide individual creative URLs
+    return this.trackingUrl || this.mediaTailorEndpoint || null;
+  }
+
+  /**
+   * Returns ad duration in milliseconds for New Relic
    */
   getDuration() {
-    // Return pod duration if we're tracking individual pods
     if (this.currentAdPod) {
       return this.currentAdPod.duration * 1000;
     }
-    // Otherwise return ad break duration
     return this.currentAdBreak ? this.currentAdBreak.duration * 1000 : null;
   }
 
   /**
-   * Returns the ad playhead
-   * @returns {number} Ad playhead in milliseconds
+   * Stops polling timers
    */
-  getPlayhead() {
-    // Return pod playhead if we're tracking individual pods
-    if (this.currentAdPod) {
-      return (this.player.currentTime() - this.currentAdPod.startTime) * 1000;
+  stopPolling() {
+    if (this.manifestPollTimer) {
+      clearInterval(this.manifestPollTimer);
+      this.manifestPollTimer = null;
     }
-    // Otherwise return ad break playhead
-    if (this.currentAdBreak) {
-      return (this.player.currentTime() - this.currentAdBreak.startTime) * 1000;
+
+    if (this.trackingPollTimer) {
+      clearInterval(this.trackingPollTimer);
+      this.trackingPollTimer = null;
     }
-    return null;
+
+    console.log(`[MT - ${getTimestamp()}] Polling stopped`);
+  }
+
+  /**
+   * Cleanup when tracker is destroyed
+   */
+  dispose() {
+    console.log(`[MT - ${getTimestamp()}] Disposing MediaTailorAdsTracker`);
+
+    this.isDisposed = true;
+
+    if (this.trackingAbortController) {
+      console.log(`[MT - ${getTimestamp()}] Aborting in-flight tracking fetch`);
+      this.trackingAbortController.abort();
+      this.trackingAbortController = null;
+    }
+
+    if (this.manifestAbortController) {
+      console.log(`[MT - ${getTimestamp()}] Aborting in-flight manifest fetch`);
+      this.manifestAbortController.abort();
+      this.manifestAbortController = null;
+    }
+
+    this.stopLivePolling();
+    this.unregisterListeners();
+    super.dispose && super.dispose();
   }
 }

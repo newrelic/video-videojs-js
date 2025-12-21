@@ -331,6 +331,8 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         'VideojsTracker: Creating MediaTailorAdsTracker after source load'
       );
       this.setAdsTracker(new MediaTailorAdsTracker(this.player, this.options));
+      // MediaTailor SSAI starts with content, not ads (unlike client-side ad frameworks)
+      this.adsTracker.setIsAd(false);
     }
   }
 
@@ -383,15 +385,35 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.FreewheelAdsCompleted = true;
   }
 
+  /**
+   * Check if ads tracker is currently in ad mode
+   * @returns {boolean} True if ads are playing
+   */
+  isAdsTrackerActive() {
+    return this.adsTracker && this.adsTracker.isAd && this.adsTracker.isAd();
+  }
+
   onPlay() {
     this.sendRequest();
   }
 
   onPause() {
+    // Don't send CONTENT_PAUSE if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
+    // Don't send CONTENT_PAUSE if video has ended (CONTENT_END will be sent instead)
+    if (this.player.ended()) {
+      return;
+    }
     this.sendPause();
   }
 
   onPlaying() {
+    // Don't send CONTENT_RESUME if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendResume();
     this.sendBufferEnd();
   }
@@ -416,10 +438,18 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   onSeeking() {
+    // Don't send CONTENT_SEEK_START if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendSeekStart();
   }
 
   onSeeked() {
+    // Don't send CONTENT_SEEK_END if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendSeekEnd();
   }
 
@@ -434,6 +464,10 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   onWaiting(e) {
+    // Don't send CONTENT_BUFFER_START if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendBufferStart();
   }
 
