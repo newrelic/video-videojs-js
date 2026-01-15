@@ -460,6 +460,72 @@ const tracker = new VideojsTracker(player, options);
 
 **Example:** See [samples/dai/index.html](./samples/dai/index.html) for a complete SSAI implementation.
 
+> [!NOTE]
+> **Attention:**
+> This version supports tracking for SSAI (Server-Side Ad Insertion), including AWS MediaTailor. Checkout [/samples/mediatailor.html](./samples/mediatailor.html)
+
+### AWS MediaTailor Integration
+
+The tracker automatically detects and tracks AWS MediaTailor SSAI streams. It supports:
+
+- **HLS and DASH** manifest formats
+- **VOD and LIVE** stream types
+- **Multiple ads (pods)** within a single break
+- **Quartile tracking** (25%, 50%, 75%)
+
+#### Usage
+
+```javascript
+import VideojsTracker from "@newrelic/video-videojs";
+
+// Initialize player with MediaTailor URL
+player.src({
+  src: 'https://your-mediatailor-endpoint.mediatailor.region.amazonaws.com/v1/master/...',
+  type: 'application/x-mpegURL'
+});
+
+// Initialize tracker - MediaTailor support is automatic
+const tracker = new VideojsTracker(player, options);
+
+// Optional: Configure MediaTailor-specific settings
+const tracker = new VideojsTracker(player, {
+  ...options,
+  mt: {
+    enableManifestParsing: true,     // Enable ad detection (default: true)
+    liveManifestPollInterval: 5000,  // Live polling interval (default: 5s)
+    trackingAPITimeout: 5000,        // API timeout (default: 5s)
+  }
+});
+```
+
+The tracker will automatically:
+1. Detect MediaTailor URLs (`.mediatailor.` in URL)
+2. Parse manifest for ad markers
+3. Track all ad events (AD_BREAK_START, AD_START, quartiles, AD_END)
+4. Enrich with tracking API data when available
+5. Handle VOD and LIVE streams appropriately
+
+
+## Testing
+
+This project includes comprehensive unit tests for all tracker functionality.
+
+```bash
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+For more details, see [test/README.md](./test/README.md).
+
 ## Data Model
 
 The tracker captures comprehensive video analytics across four event types:
