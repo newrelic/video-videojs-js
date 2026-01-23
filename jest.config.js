@@ -42,7 +42,8 @@ module.exports = {
 
   // Module name mapping for imports
   moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1'
+    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@newrelic/video-core$': '@newrelic/video-core/__mock__.js'
   },
 
   // Clear mocks between tests

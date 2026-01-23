@@ -48,54 +48,34 @@ global.google = {
   }
 };
 
-// Mock the New Relic video core
-jest.mock('@newrelic/video-core', () => ({
-  __esModule: true,
-  default: {
-    VideoTracker: class VideoTracker {
-      constructor(player, options) {
-        this.player = player;
-        this.options = options;
-      }
-      sendDownload() {}
-      sendRequest() {}
-      sendPause() {}
-      sendResume() {}
-      sendBufferStart() {}
-      sendBufferEnd() {}
-      sendSeekStart() {}
-      sendSeekEnd() {}
-      sendStart() {}
-      sendEnd() {}
-      sendError() {}
-      sendCustom() {}
-      sendAdQuartile() {}
-      sendAdClick() {}
-      setUserId() {}
-      setHarvestInterval() {}
-      setAdsTracker() {}
-      registerListeners() {}
-      unregisterListeners() {}
-    },
-    Core: {
-      addTracker: jest.fn()
-    },
-    Log: {
-      debugCommonVideoEvents: jest.fn(),
-      debug: jest.fn(),
-      warn: jest.fn(),
-      info: jest.fn(),
-      error: jest.fn()
-    },
-    Constants: {
-      AdPositions: {
-        PRE: 'pre',
-        MID: 'mid',
-        POST: 'post'
-      }
-    }
-  }
-}));
+// Shared mock is now handled by moduleNameMapper in jest.config.js
+// However, we need to supplement it with additional mocks that might be missing
+
+// Import the shared mock to extend it if needed
+import nrvideo from '@newrelic/video-core';
+
+// Ensure all Log methods are available
+if (!nrvideo.Log.debug) nrvideo.Log.debug = jest.fn();
+if (!nrvideo.Log.warn) nrvideo.Log.warn = jest.fn();
+if (!nrvideo.Log.info) nrvideo.Log.info = jest.fn();
+if (!nrvideo.Log.error) nrvideo.Log.error = jest.fn();
+
+// Ensure Core.addTracker is a proper jest mock
+if (nrvideo.Core && !jest.isMockFunction(nrvideo.Core.addTracker)) {
+  nrvideo.Core.addTracker = jest.fn();
+}
+
+// Ensure Constants.AdPositions is available
+if (!nrvideo.Constants) {
+  nrvideo.Constants = {};
+}
+if (!nrvideo.Constants.AdPositions) {
+  nrvideo.Constants.AdPositions = {
+    PRE: 'pre',
+    MID: 'mid',
+    POST: 'post'
+  };
+}
 
 // Mock package.json
 jest.mock('./package.json', () => ({
