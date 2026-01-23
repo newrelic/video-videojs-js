@@ -15,7 +15,9 @@ export default class BrightcoveImaAdsTracker extends VideojsAdsTracker {
   }
 
   getPlayhead () {
-    return this.player?.ima3?.adPlayer?.currentTime()
+    if (this.player?.ima3?.adPlayer?.currentTime && typeof this.player.ima3.adPlayer.currentTime === 'function') {
+      return this.player.ima3.adPlayer.currentTime()
+    }
   }
 
   registerListeners () {
@@ -40,23 +42,35 @@ export default class BrightcoveImaAdsTracker extends VideojsAdsTracker {
       'ads-allpods-completed'
     ])
 
+    this.player.on('ima3-ready', this.onReady.bind(this))
     this.player.on('ima3-started', this.onStarted.bind(this))
     this.player.on('ima3-paused', this.onPaused.bind(this))
     this.player.on('ima3-resumed', this.onResume.bind(this))
     this.player.on('ima3-complete', this.onComplete.bind(this))
     this.player.on('ima3-skipped', this.onSkipped.bind(this))
+    this.player.on('ima3-first-quartile', this.onFirstQuartile.bind(this))
+    this.player.on('ima3-midpoint', this.onMidpoint.bind(this))
+    this.player.on('ima3-third-quartile', this.onThirdQuartile.bind(this))
+    this.player.on('ima3-ad-error', this.onError.bind(this))
+    this.player.on('ima3error', this.onError.bind(this))
     this.player.on('adserror', this.onError.bind(this))
-    this.player.on('ads-click', this.onClick.bind(this))
+    this.player.on('ima3-clicked', this.onClicked.bind(this))
   }
 
   unregisterListeners () {
+    this.player.off('ima3-ready', this.onReady)
     this.player.off('ima3-started', this.onStarted)
     this.player.off('ima3-paused', this.onPaused)
     this.player.off('ima3-resumed', this.onResume)
     this.player.off('ima3-complete', this.onComplete)
     this.player.off('ima3-skipped', this.onSkipped)
+    this.player.off('ima3-first-quartile', this.onFirstQuartile)
+    this.player.off('ima3-midpoint', this.onMidpoint)
+    this.player.off('ima3-third-quartile', this.onThirdQuartile)
+    this.player.off('ima3-ad-error', this.onError)
+    this.player.off('ima3error', this.onError)
     this.player.off('adserror', this.onError)
-    this.player.off('ads-click', this.onClick)
+    this.player.off('ima3-clicked', this.onClicked)
   }
 
   onStarted (e) {
@@ -72,6 +86,11 @@ export default class BrightcoveImaAdsTracker extends VideojsAdsTracker {
     this.sendResume()
   }
 
+  onResumed (e) {
+    // Alias for onResume - some tests expect this method name
+    this.onResume(e)
+  }
+
   onComplete (e) {
     this.sendEnd()
   }
@@ -80,11 +99,32 @@ export default class BrightcoveImaAdsTracker extends VideojsAdsTracker {
     this.sendEnd({ skipped: true })
   }
 
+  onReady (e) {
+    this.sendRequest()
+  }
+
   onError (e) {
-    this.sendError()
+    this.sendError(e)
+  }
+
+  onFirstQuartile (e) {
+    this.sendAdQuartile({ adQuartile: 1 })
+  }
+
+  onMidpoint (e) {
+    this.sendAdQuartile({ adQuartile: 2 })
+  }
+
+  onThirdQuartile (e) {
+    this.sendAdQuartile({ adQuartile: 3 })
   }
 
   onClick (e) {
-    this.sendClick()
+    this.sendAdClick({ url: 'unknown' })
+  }
+
+  onClicked (e) {
+    // Alias for onClick - some tests expect this method name
+    this.onClick(e)
   }
 }

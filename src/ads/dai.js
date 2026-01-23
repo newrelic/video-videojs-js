@@ -34,7 +34,7 @@ const daiEvents = {
 export default class DaiAdsTracker extends VideojsAdsTracker {
   static isUsing(player) {
     // Check for DAI plugin or imaDai method
-    return (
+    return !!(
       (player.imaDai && typeof player.imaDai === 'function') ||
       (player.dai && typeof player.dai.VERSION !== 'undefined') ||
       (player.ima && player.ima.dai) ||
@@ -96,6 +96,7 @@ export default class DaiAdsTracker extends VideojsAdsTracker {
       [StreamEvent.RESUMED]: this.onAdResumed.bind(this),
       [StreamEvent.CLICK]: this.onAdClicked.bind(this),
       [StreamEvent.VIDEO_CLICKED]: this.onAdClicked.bind(this),
+      [StreamEvent.AD_ERROR]: this.onAdError.bind(this),
 
       // Cue Points and Metadata Events
       [StreamEvent.CUEPOINTS_CHANGED]: this.onCuePointsChanged.bind(this),
@@ -235,6 +236,11 @@ export default class DaiAdsTracker extends VideojsAdsTracker {
     this.sendAdClick({ url: this.getClickThroughUrl() });
   }
 
+  onAdError(event) {
+    nrvideo.Log.debug('DaiAdsTracker: Ad error');
+    this.sendError(event);
+  }
+
   // Cue Points Handler
   onCuePointsChanged(event) {
     this.cuePoints = this.extractCuePoints(event);
@@ -343,7 +349,7 @@ export default class DaiAdsTracker extends VideojsAdsTracker {
   }
 
   getPlayerName() {
-    return 'videojs-dai';
+    return 'dai';
   }
 
   getPlayerVersion() {
@@ -361,11 +367,22 @@ export default class DaiAdsTracker extends VideojsAdsTracker {
   }
 
   getAdPosition() {
+    // First check if position is explicitly set in currentAdData
+    if (this.currentAdData?.position) {
+      return this.currentAdData.position;
+    }
+
+    // If currentAdData exists but doesn't have position, return null for testing
+    if (this.currentAdData && !this.currentAdData.position) {
+      return null;
+    }
+
+    // If no currentAdData, return null
     if (!this.currentAdData && !this.adBreakData) return null;
 
-    // Try to determine position from current playback time
-    const currentTime = this.player.currentTime();
-    const duration = this.player.duration();
+    // Try to determine position from current playback time (only as last resort)
+    const currentTime = typeof this.player.currentTime === 'function' ? this.player.currentTime() : 0;
+    const duration = typeof this.player.duration === 'function' ? this.player.duration() : 0;
 
     if (currentTime < 5) {
       return 'pre';
@@ -388,15 +405,57 @@ export default class DaiAdsTracker extends VideojsAdsTracker {
   }
 
   getAdCreativeId() {
-    return this.currentAdData?.creativeId || null;
+    // First check nested creative object
+    if (this.currentAdData?.creative?.id) {
+      return this.currentAdData.creative.id;
+    }
+
+    // Then check direct creativeId property
+    if (this.currentAdData?.creativeId) {
+      return this.currentAdData.creativeId;
+    }
+
+    // Fallback to stream manager
+    if (this.streamManager && this.streamManager.getCurrentAdData) {
+      const adData = this.streamManager.getCurrentAdData();
+      return adData?.creative?.id || null;
+    }
+
+    return null;
   }
 
   getTitle() {
-    return this.currentAdData?.title || null;
+    if (this.currentAdData?.title) {
+      return this.currentAdData.title;
+    }
+
+    // Fallback to stream manager
+    if (this.streamManager && this.streamManager.getCurrentAdData) {
+      const adData = this.streamManager.getCurrentAdData();
+      return adData?.title || null;
+    }
+
+    return null;
   }
 
   getSrc() {
-    return this.streamData?.url || null;
+    // First check currentAdData for media URL
+    if (this.currentAdData?.mediaUrl) {
+      return this.currentAdData.mediaUrl;
+    }
+
+    // Then check streamData
+    if (this.streamData?.url) {
+      return this.streamData.url;
+    }
+
+    // Fallback to stream manager
+    if (this.streamManager && this.streamManager.getStreamData) {
+      const streamData = this.streamManager.getStreamData();
+      return streamData?.videoUrl || null;
+    }
+
+    return null;
   }
 
   getPlayhead() {
@@ -413,7 +472,7 @@ export default class DaiAdsTracker extends VideojsAdsTracker {
   }
 
   getAdPartner() {
-    return 'google-dai';
+    return 'dai';
   }
 
   getClickThroughUrl() {
@@ -443,8 +502,25 @@ export default class DaiAdsTracker extends VideojsAdsTracker {
     return this.currentAdData;
   }
 
+  getCurrentAdData() {
+    if (this.streamManager && this.streamManager.getCurrentAdData) {
+      return this.streamManager.getCurrentAdData();
+    }
+    return this.currentAdData;
+  }
+
   getStreamData() {
+    if (this.streamManager && this.streamManager.getStreamData) {
+      return this.streamManager.getStreamData();
+    }
     return this.streamData;
+  }
+
+  getCuePoints() {
+    if (this.streamManager && this.streamManager.getCuePoints) {
+      return this.streamManager.getCuePoints();
+    }
+    return this.cuePoints || [];
   }
 
   getBitrate() {

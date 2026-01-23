@@ -7,8 +7,9 @@ import ShakaTech from '../techs/shaka';
 export default class VideojsAdsTracker extends nrvideo.VideoTracker {
 
   getTech() {
+    try {
       const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
-  
+
       if (tech) {
         if (ContribHlsTech.isUsing(tech)) {
           return new ContribHlsTech(tech);
@@ -18,7 +19,11 @@ export default class VideojsAdsTracker extends nrvideo.VideoTracker {
           return new ShakaTech(tech);
         }
       }
+    } catch (error) {
+      // Handle tech access errors gracefully
+      return undefined;
     }
+  }
   
   getTrackerName () {
     return 'videojs-ads'

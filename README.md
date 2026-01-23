@@ -99,7 +99,7 @@ tracker.sendCustom('CustomAction', { data: "custom-test" })
 
 ```
 
-## Support for SSAI 
+## Support for SSAI Ads
 
 > [!NOTE]
 > **Attention:**  
