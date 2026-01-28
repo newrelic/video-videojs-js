@@ -18,7 +18,7 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       (github.event.pull_request.merged == true &&
        startsWith(github.event.pull_request.head.ref, 'release/'))
-    uses: newrelic/video-core-js/.github/workflows/npm-use-shared-publish.yml@stable
+    uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
     with:
       s3-path: 'media-agents/browser/videojs'
       file-to-upload: 'dist/umd/newrelic-video-videojs.min.js'
