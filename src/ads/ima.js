@@ -4,7 +4,7 @@ import VideojsAdsTracker from './videojs-ads';
 
 export default class ImaAdsTracker extends VideojsAdsTracker {
   static isUsing(player) {
-    return player.ima && typeof google !== 'undefined';
+    return !!(player.ima && typeof google !== 'undefined');
   }
 
   getTrackerName() {
@@ -81,8 +81,9 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
 
   getPlayhead() {
     let manager = this.player.ima.getAdsManager();
-    if (manager) {
-      return (this.getDuration() - manager.getRemainingTime()) * 1000;
+    if (manager && this.lastAdData?.duration !== undefined) {
+      // Both duration and remaining time are in seconds, convert result to microseconds
+      return (this.lastAdData.duration - manager.getRemainingTime()) * 1000000;
     }
   }
 
