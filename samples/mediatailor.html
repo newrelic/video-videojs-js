@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8" />
@@ -82,7 +82,9 @@
       <div>
         <span class="format-label">DASH Format:</span>
         <button onclick="loadDASHStream()">Load DASH Stream</button>
-        <small style="color: #666; margin-left: 10px;">(Requires DASH source in MediaTailor config)</small>
+        <small style="color: #666; margin-left: 10px"
+          >(Requires DASH source in MediaTailor config)</small
+        >
       </div>
     </div>
 
@@ -111,14 +113,21 @@
       // Initialize New Relic tracker with MediaTailor support
       const tracker = new VideojsTracker(player, {
         info: {
-          beacon: 'bam.nr-data.net', // Your New Relic beacon URL
-          applicationID: 'YOUR_APP_ID', // Your New Relic application ID
-          licenseKey: 'YOUR_LICENSE_KEY', // Your New Relic license key
+          beacon: 'YOUR_BEACON_URL',
+          applicationID: 'YOUR_APPLICATION_ID',
+          licenseKey: 'YOUR_LICENSE_KEY',
         },
         mt: {
           enableManifestParsing: true,
-        }
+        },
       });
+
+      // MediaTailor configuration
+      // Session initialization prefix: https://{cloudfront-id}.mediatailor.{region}.amazonaws.com/v1/session/{account-id}/{playback-config-name}/
+      const baseUrl =
+        'https://YOUR_CLOUDFRONT_ID.mediatailor.REGION.amazonaws.com';
+      const accountId = 'YOUR_ACCOUNT_ID';
+      const playbackConfig = 'YOUR_PLAYBACK_CONFIG';
 
       // Status helper
       function updateStatus(message, isError = false) {
@@ -131,12 +140,8 @@
 
       // Initialize MediaTailor session and return sessionId
       async function initializeSession(format) {
-        // Replace with your MediaTailor endpoint
-        // Format: https://{cloudfront-id}.mediatailor.{region}.amazonaws.com
-        const baseUrl = 'https://YOUR_CLOUDFRONT_ID.mediatailor.REGION.amazonaws.com';
-
         // Format: /v1/session/{account-id}/{playback-config-name}/{format}
-        const sessionEndpoint = `${baseUrl}/v1/session/YOUR_ACCOUNT_ID/YOUR_PLAYBACK_CONFIG/${format}`;
+        const sessionEndpoint = `${baseUrl}/v1/session/${accountId}/${playbackConfig}/${format}`;
 
         const response = await fetch(sessionEndpoint, {
           method: 'POST',
@@ -174,8 +179,8 @@
           updateStatus('Loading HLS stream...');
 
           // Use direct master.m3u8 URL but add sessionId for tracking
-          // Format: https://{cloudfront-id}.mediatailor.{region}.amazonaws.com/v1/master/{account-id}/{playback-config-name}/master.m3u8?aws.sessionId={session-id}
-          const hlsUrl = `${baseUrl}/v1/master/YOUR_ACCOUNT_ID/YOUR_PLAYBACK_CONFIG/master.m3u8?aws.sessionId=${sessionId}`;
+          // HLS playback prefix: https://{cloudfront-id}.mediatailor.{region}.amazonaws.com/v1/master/{account-id}/{playback-config-name}/
+          const hlsUrl = `${baseUrl}/v1/master/${accountId}/${playbackConfig}/master.m3u8?aws.sessionId=${sessionId}`;
 
           console.log('HLS URL:', hlsUrl);
 
@@ -206,8 +211,8 @@
           updateStatus('Loading DASH stream...');
 
           // Use direct index.mpd URL but add sessionId for tracking
-          // Format: https://{cloudfront-id}.mediatailor.{region}.amazonaws.com/v1/dash/{account-id}/{playback-config-name}/index.mpd?aws.sessionId={session-id}
-          const dashUrl = `${baseUrl}/v1/dash/YOUR_ACCOUNT_ID/YOUR_PLAYBACK_CONFIG/index.mpd?aws.sessionId=${sessionId}`;
+          // DASH playback prefix: https://{cloudfront-id}.mediatailor.{region}.amazonaws.com/v1/dash/{account-id}/{playback-config-name}/
+          const dashUrl = `${baseUrl}/v1/dash/${accountId}/${playbackConfig}/index.mpd?aws.sessionId=${sessionId}`;
 
           console.log('DASH URL:', dashUrl);
 
@@ -227,18 +232,29 @@
 
       // Log player events for debugging
       player.on('loadedmetadata', () => {
-        updateStatus(`Stream loaded - Duration: ${player.duration().toFixed(2)}s`);
+        updateStatus(
+          `Stream loaded - Duration: ${player.duration().toFixed(2)}s`,
+        );
       });
 
       player.on('error', (e) => {
         const error = player.error();
-        updateStatus(`Player Error: ${error?.message || 'Unknown error'}`, true);
+        updateStatus(
+          `Player Error: ${error?.message || 'Unknown error'}`,
+          true,
+        );
       });
 
       player.on('playing', () => {
         const currentSrc = player.currentSrc();
-        const format = currentSrc.includes('.m3u8') ? 'HLS' : currentSrc.includes('.mpd') ? 'DASH' : 'Unknown';
-        updateStatus(`Playing ${format} stream - ${player.currentTime().toFixed(2)}s / ${player.duration().toFixed(2)}s`);
+        const format = currentSrc.includes('.m3u8')
+          ? 'HLS'
+          : currentSrc.includes('.mpd')
+            ? 'DASH'
+            : 'Unknown';
+        updateStatus(
+          `Playing ${format} stream - ${player.currentTime().toFixed(2)}s / ${player.duration().toFixed(2)}s`,
+        );
       });
     </script>
   </body>
