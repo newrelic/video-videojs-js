@@ -112,158 +112,40 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   getBitrate() {
-    let videoBitrate = 0;
-    let audioBitrate = 0;
-    let totalBitrate = 0;
+    return this.getContentBitratePlayback();
+  }
 
-    if (this.player) {
-      const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+  // Measures: Actual content consumption rate during playback
+  getContentBitratePlayback() {
+    const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
 
-      if (tech) {
-        let playlists, currentMedia;
+    // VHS/HLS support - calculate actual playback bitrate
+    if (tech?.vhs?.stats) {
+      const stats = tech.vhs.stats;
 
-        // Method 1: Try VHS (Video HTTP Streaming) - most common for HLS/DASH
-        if (tech.vhs && tech.vhs.playlists && tech.vhs.playlists.media) {
-          playlists = tech.vhs.playlists;
-          currentMedia = tech.vhs.playlists.media();
-        } else if (tech.hls && tech.hls.playlists && tech.hls.playlists.media) {
-          playlists = tech.hls.playlists;
-          currentMedia = tech.hls.playlists.media();
+      // Calculate actual playback bitrate based on content consumption
+      // This represents the bitrate at which content is being played back
+      if (stats.mediaBytesTransferred > 0 && stats.mediaRequests > 0) {
+        // Get total playback time (accounting for playback rate)
+        const currentTime = this.player.currentTime(); // in seconds
+        const playbackRate = this.player.playbackRate() || 1;
+
+        // Adjust playback time by playback rate
+        // If playing at 2x speed, you consume 2x the bitrate
+        const effectivePlaybackTime = currentTime / playbackRate;
+
+        if (effectivePlaybackTime > 0) {
+          const bitsTransferred = stats.mediaBytesTransferred * 8;
+          const playbackBitrate = bitsTransferred / effectivePlaybackTime;
+          return playbackBitrate;
         }
-
-        if (currentMedia && currentMedia.attributes) {
-          if (currentMedia.attributes.BANDWIDTH) {
-            videoBitrate = currentMedia.attributes.BANDWIDTH;
-          }
-
-          // Get audio bitrate if available
-          const audioTracks = this.player.audioTracks();
-          let activeAudioTrack;
-
-          if (audioTracks && audioTracks.length > 0) {
-            for (let i = 0; i < audioTracks.length; i++) {
-              if (audioTracks[i].enabled) {
-                activeAudioTrack = audioTracks[i];
-                break;
-              }
-            }
-          }
-
-          if (activeAudioTrack && currentMedia.attributes.AUDIO) {
-            let masterPlaylist;
-            if (playlists) {
-              masterPlaylist = playlists.master || playlists.main;
-            }
-
-            if (
-              masterPlaylist &&
-              masterPlaylist.mediaGroups &&
-              masterPlaylist.mediaGroups.AUDIO
-            ) {
-              const audioGroup =
-                masterPlaylist.mediaGroups.AUDIO[currentMedia.attributes.AUDIO];
-              const audioMediaInfo =
-                audioGroup && audioGroup[activeAudioTrack.id];
-
-              if (
-                audioMediaInfo &&
-                audioMediaInfo.playlists &&
-                audioMediaInfo.playlists[0]
-              ) {
-                const audioPlaylist = audioMediaInfo.playlists[0].attributes;
-                if (audioPlaylist && audioPlaylist.BANDWIDTH) {
-                  audioBitrate = audioPlaylist.BANDWIDTH;
-                }
-              }
-            }
-          }
-
-          totalBitrate = videoBitrate + audioBitrate;
-
-          return totalBitrate; // Return in bps
-        }
-
-        // Method 2: Try Shaka Player
-        const shakaPlayer =
-          tech.shakaPlayer_ || tech.shaka_ || tech.shakaPlayer;
-        if (shakaPlayer && typeof shakaPlayer.getStats === 'function') {
-          const stats = shakaPlayer.getStats();
-          if (stats && stats.streamBandwidth) {
-            return stats.streamBandwidth;
-          }
-        }
-
-        // Method 3: Try HLS.js
-        const hlsJs = tech.hls_;
-        if (hlsJs && hlsJs.levels && hlsJs.currentLevel >= 0) {
-          const currentLevel = hlsJs.levels[hlsJs.currentLevel];
-          if (currentLevel && currentLevel.bitrate) {
-            return currentLevel.bitrate;
-          }
-        }
-      }
-
-      // Method 4: Try DASH.js
-      let dashPlayer;
-      if (this.player.mediaPlayer) {
-        dashPlayer = this.player.mediaPlayer;
-      } else if (this.player.dash && this.player.dash.mediaPlayer) {
-        dashPlayer = this.player.dash.mediaPlayer;
-      }
-
-      if (
-        dashPlayer &&
-        typeof dashPlayer.getQualityFor === 'function' &&
-        typeof dashPlayer.getBitrateInfoListFor === 'function'
-      ) {
-        // Get audio bitrate
-        const audioQuality = dashPlayer.getQualityFor('audio');
-        const audioBitrateList = dashPlayer.getBitrateInfoListFor('audio');
-        if (
-          audioQuality !== undefined &&
-          audioBitrateList &&
-          audioBitrateList[audioQuality] &&
-          audioBitrateList[audioQuality].bitrate
-        ) {
-          audioBitrate = audioBitrateList[audioQuality].bitrate;
-        }
-
-        // Get video bitrate
-        const videoQuality = dashPlayer.getQualityFor('video');
-        const videoBitrateList = dashPlayer.getBitrateInfoListFor('video');
-        if (
-          videoQuality !== undefined &&
-          videoBitrateList &&
-          videoBitrateList[videoQuality] &&
-          videoBitrateList[videoQuality].bitrate
-        ) {
-          videoBitrate = videoBitrateList[videoQuality].bitrate;
-        } else {
-          videoBitrate = videoBitrate || 0;
-        }
-
-        totalBitrate = audioBitrate + videoBitrate;
-        return totalBitrate;
       }
     }
 
-    // Fallback: Try tech-specific implementations from your wrappers
+    // Support for other tech implementations using the same formula
     const techWrapper = this.getTech();
-    if (techWrapper) {
-      if (
-        techWrapper.getBitrate &&
-        typeof techWrapper.getBitrate === 'function'
-      ) {
-        return techWrapper.getBitrate();
-      }
-
-      if (
-        techWrapper.tech &&
-        techWrapper.tech.stats &&
-        techWrapper.tech.stats.bandwidth
-      ) {
-        return techWrapper.tech.stats.bandwidth;
-      }
+    if (techWrapper?.getBitrate) {
+      return techWrapper.getBitrate();
     }
 
     return null;
@@ -277,6 +159,8 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   getRenditionBitrate() {
+    // Returns the target bitrate from the manifest (static, changes only on rendition switch)
+    // This is different from getBitrate() which returns the actual measured bitrate
     let tech = this.getTech();
 
     if (tech && tech.getRenditionBitrate) {
