@@ -1,83 +1,95 @@
 export default class ContribHlsTech {
-  constructor (tech) {
-    this.tech = tech.vhs
-    this.player = tech.el().player // Store player reference for playback bitrate calculation
+  constructor(tech) {
+    this.tech = tech.vhs;
+    this.player = tech.el().player; // Store player reference for playback bitrate calculation
   }
 
-  getRenditionName () {
+  getRenditionName() {
     try {
-      var media = this.tech.playlists.media()
-      if (media && media.attributes) return media.attributes.NAME
-    } catch (err) { }
-    return null
+      var media = this.tech.playlists.media();
+      if (media && media.attributes) return media.attributes.NAME;
+    } catch (err) {}
+    return null;
   }
 
-  getRenditionBitrate () {
+  getRenditionBitrate() {
     try {
-      var media = this.tech.playlists.media()
-      if (media && media.attributes) return media.attributes.BANDWIDTH
-    } catch (err) { }
-    return null
+      var media = this.tech.playlists.media();
+      if (media && media.attributes) return media.attributes.BANDWIDTH;
+    } catch (err) {}
+    return null;
   }
 
-  getRenditionWidth () {
+  getRenditionWidth() {
     try {
-      var media = this.tech.playlists.media()
+      var media = this.tech.playlists.media();
       if (media && media.attributes && media.attributes.RESOLUTION) {
-        return media.attributes.RESOLUTION.width
+        return media.attributes.RESOLUTION.width;
       }
-    } catch (err) { }
-    return null
+    } catch (err) {}
+    return null;
   }
 
-  getRenditionHeight () {
+  getRenditionHeight() {
     try {
-      var media = this.tech.playlists.media()
+      var media = this.tech.playlists.media();
       if (media && media.attributes && media.attributes.RESOLUTION) {
-        return media.attributes.RESOLUTION.height
+        return media.attributes.RESOLUTION.height;
       }
-    } catch (err) { }
-    return null
+    } catch (err) {}
+    return null;
   }
 
-  getBitrate () {
+  getBitrate() {
     // Calculate playback bitrate (actual content consumption rate)
-    return this.getContentBitratePlayback()
+    return this.getContentBitratePlayback();
   }
 
-  getContentBitratePlayback () {
+  getManifestBitrate() {
     try {
-      // VHS provides stats for calculating actual playback bitrate
-      if (this.tech.stats && this.player) {
-        const stats = this.tech.stats
-
-        // Calculate actual playback bitrate based on content consumption
-        if (stats.mediaBytesTransferred > 0 && stats.mediaRequests > 0) {
-          const currentTime = this.player.currentTime() // in seconds
-          const playbackRate = this.player.playbackRate() || 1
-
-          // Adjust playback time by playback rate
-          const effectivePlaybackTime = currentTime / playbackRate
-
-          if (effectivePlaybackTime > 0) {
-            const bitsTransferred = stats.mediaBytesTransferred * 8
-            return bitsTransferred / effectivePlaybackTime
-          }
-        }
+      // Return highest available bitrate from all renditions
+      const playlists = this.tech.playlists.master.playlists;
+      if (playlists && playlists.length > 0) {
+        return Math.max(...playlists.map((p) => p.attributes.BANDWIDTH));
       }
+    } catch (err) {}
+    return null;
+  }
 
-      // Fallback to VHS bandwidth estimates if stats not available
-      if (this.tech.bandwidth !== undefined && this.tech.bandwidth > 0) {
-        return this.tech.bandwidth
+  getSegmentDownloadBitrate() {
+    if (
+      this.tech.stats?.bandwidth !== undefined &&
+      this.tech.stats.bandwidth > 0
+    ) {
+      return this.tech.stats.bandwidth;
+    }
+    return null;
+  }
+
+  getNetworkDownloadBitrate() {
+    if (this.tech.throughput !== undefined && this.tech.throughput > 0) {
+      return this.tech.throughput;
+    }
+    return null;
+  }
+
+  getContentBitratePlayback() {
+    try {
+      // Get the current active rendition's bitrate from manifest
+      const media = this.tech.playlists.media();
+      if (media && media.attributes) {
+        // Use AVERAGE-BANDWIDTH if available, fallback to BANDWIDTH
+        return (
+          media.attributes['AVERAGE-BANDWIDTH'] ||
+          media.attributes.BANDWIDTH ||
+          null
+        );
       }
-      if (this.tech.systemBandwidth !== undefined && this.tech.systemBandwidth > 0) {
-        return this.tech.systemBandwidth
-      }
-    } catch (err) { }
-    return null
+    } catch (err) {}
+    return null;
   }
 }
 
 ContribHlsTech.isUsing = function (tech) {
-  return !!tech.vhs
-}
+  return !!tech.vhs;
+};

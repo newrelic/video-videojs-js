@@ -47,21 +47,38 @@ export default class HlsJs {
 
   getContentBitratePlayback() {
     try {
-      if (this.tech.stats && this.player) {
-        const stats = this.tech.stats;
-        // Calculate actual playback bitrate based on content consumption
-        if (stats.mediaBytesTransferred > 0 && stats.mediaRequests > 0) {
-          const currentTime = this.player.currentTime(); // in seconds
-          const playbackRate = this.player.playbackRate() || 1;
-          const effectivePlaybackTime = currentTime / playbackRate;
-
-          if (effectivePlaybackTime > 0) {
-            const bitsTransferred = stats.mediaBytesTransferred * 8;
-            return bitsTransferred / effectivePlaybackTime;
-          }
-        }
+      // Get the current active level's bitrate from manifest
+      const level = this.tech.levels[this.tech.currentLevel];
+      if (level && level.bitrate) {
+        return level.bitrate;
       }
     } catch (err) {}
+    return null;
+  }
+
+  getManifestBitrate() {
+    try {
+      // Return highest available bitrate from all renditions
+      if (this.tech.levels && this.tech.levels.length > 0) {
+        return Math.max(...this.tech.levels.map(l => l.bitrate));
+      }
+    } catch (err) {}
+    return null;
+  }
+
+  getSegmentDownloadBitrate() {
+    try {
+      // VHS stats.bandwidth
+      if (this.tech.stats && this.tech.stats.bandwidth > 0)
+        return this.tech.stats.bandwidth;
+    } catch (err) {}
+    return null;
+  }
+
+  getNetworkDownloadBitrate() {
+    if (this.tech.throughput && this.tech.throughput > 0) {
+      return this.tech.throughput;
+    }
     return null;
   }
 }
