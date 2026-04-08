@@ -12,6 +12,7 @@ import DaiAdsTracker from './ads/dai';
 export default class VideojsTracker extends nrvideo.VideoTracker {
   constructor(player, options) {
     super(player, options);
+
     this.isContentEnd = false;
     this.imaAdCuePoints = '';
     this.daiInitialized = false;
@@ -117,37 +118,28 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
   // Measures: Actual content consumption rate during playback
   getContentBitratePlayback() {
-    const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+    try {
+      const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
 
-    // VHS/HLS support - calculate actual playback bitrate
-    if (tech?.vhs?.stats) {
-      const stats = tech.vhs.stats;
-
-      // Calculate actual playback bitrate based on content consumption
-      // This represents the bitrate at which content is being played back
-      if (stats.mediaBytesTransferred > 0 && stats.mediaRequests > 0) {
-        // Get total playback time (accounting for playback rate)
-        const currentTime = this.player.currentTime(); // in seconds
-        const playbackRate = this.player.playbackRate() || 1;
-
-        // Adjust playback time by playback rate
-        // If playing at 2x speed, you consume 2x the bitrate
-        const effectivePlaybackTime = currentTime / playbackRate;
-
-        if (effectivePlaybackTime > 0) {
-          const bitsTransferred = stats.mediaBytesTransferred * 8;
-          const playbackBitrate = bitsTransferred / effectivePlaybackTime;
-          return playbackBitrate;
-        }
+      // 1. Get the current active rendition (The most accurate "Playback Bitrate")
+      if (tech?.vhs?.playlists?.media()) {
+        const activePlaylist = tech.vhs.playlists.media();
+        // Use AVERAGE-BANDWIDTH if available, fallback to BANDWIDTH
+        return (
+          activePlaylist.attributes['AVERAGE-BANDWIDTH'] ||
+          activePlaylist.attributes.BANDWIDTH ||
+          null
+        );
       }
-    }
 
-    // Support for other tech implementations using the same formula
-    const techWrapper = this.getTech();
-    if (techWrapper?.getBitrate) {
-      return techWrapper.getBitrate();
+      // 2. Fallback to tech wrappers (Shaka/Hls.js) if they have a getBitrate method
+      const techWrapper = this.getTech();
+      if (techWrapper?.getBitrate) {
+        return techWrapper.getBitrate();
+      }
+    } catch (err) {
+      /* ignore */
     }
-
     return null;
   }
 
@@ -158,14 +150,65 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     }
   }
 
-  getRenditionBitrate() {
-    // Returns the target bitrate from the manifest (static, changes only on rendition switch)
-    // This is different from getBitrate() which returns the actual measured bitrate
-    let tech = this.getTech();
+  getManifestBitrate() {
+    try {
+      const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+      // tech.vhs.playlists.master.playlists contains the array of all renditions
+      const allRenditions = tech?.vhs?.playlists?.master?.playlists;
 
-    if (tech && tech.getRenditionBitrate) {
-      return tech.getRenditionBitrate();
+      if (allRenditions && allRenditions.length > 0) {
+        // Find the highest BANDWIDTH value in the list
+        const maxBitrate = Math.max(
+          ...allRenditions.map((p) => p.attributes.BANDWIDTH || 0),
+        );
+        return maxBitrate > 0 ? maxBitrate : null;
+      }
+
+      // Fallback to tech wrappers (Shaka/Hls.js)
+      const techWrapper = this.getTech();
+      if (techWrapper?.getManifestBitrate) {
+        return techWrapper.getManifestBitrate();
+      }
+    } catch (e) {
+      /* ignore */
     }
+    return null;
+  }
+
+  getSegmentDownloadBitrate() {
+    try {
+      const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+
+      // VHS stats.bandwidth
+      if (tech?.vhs?.stats?.bandwidth && tech.vhs.stats.bandwidth > 0) {
+        return tech.vhs.stats.bandwidth;
+      }
+
+      // Fallback to tech wrappers (Shaka/Hls.js)
+      const techWrapper = this.getTech();
+      if (techWrapper?.getSegmentDownloadBitrate) {
+        return techWrapper.getSegmentDownloadBitrate();
+      }
+    } catch (err) {
+      /* ignore */
+    }
+    return null;
+  }
+
+  getNetworkDownloadBitrate() {
+    const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
+
+    if (tech?.vhs?.throughput && tech.vhs.throughput > 0) {
+      return tech.vhs.throughput;
+    }
+
+    // Fallback to tech wrapper implementation
+    const techWrapper = this.getTech();
+    if (techWrapper?.getNetworkDownloadBitrate) {
+      return techWrapper.getNetworkDownloadBitrate();
+    }
+
+    return null;
   }
 
   getRenditionHeight() {
@@ -248,7 +291,6 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.on('waiting', this.onWaiting);
     this.player.on('timeupdate', this.onTimeupdate);
     this.player.on('ads-allpods-completed', this.OnAdsAllpodsCompleted);
-
     this.player.on('stream-manager', this.onStreamManager);
   }
 
@@ -271,7 +313,6 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.player.off('waiting', this.onWaiting);
     this.player.off('timeupdate', this.onTimeupdate);
     this.player.off('ads-allpods-completed', this.OnAdsAllpodsCompleted);
-
     this.player.off('stream-manager', this.onStreamManager);
   }
 

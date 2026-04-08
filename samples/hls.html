@@ -19,11 +19,31 @@
       width="640"
       height="264"
     >
-      <source src="https://dash.akamaized.net/akamai/bbb_30fps/bbb_30fps.mpd" />
+      <source
+        src="https://d2ne8z1csjj3og.cloudfront.net/demos/media/adam/hls/adamdemo.m3u8"
+      />
     </video>
     <script>
       var player = videojs('my-video');
-      const tracker = new VideojsTracker(player);
+
+      options = {
+        info: {
+          beacon: 'xxxxxxxxxxx',
+          licenseKey: 'xxxxxxxxxxx',
+          applicationID: 'xxxxxxxxxxxx',
+        },
+      };
+
+      // // set up new relic videojs tracker
+      const tracker = new VideojsTracker(player, options);
+
+      // List each event type
+      if (player.listeners_) {
+        Object.keys(player.listeners_).forEach((eventType) => {
+          const listeners = player.listeners_[eventType];
+          console.log(`${eventType}: ${listeners.length} listener(s)`);
+        });
+      }
     </script>
   </body>
 </html>
