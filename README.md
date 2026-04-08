@@ -24,8 +24,8 @@ The New Relic Video.js Tracker provides comprehensive video analytics for applic
   - [Option 2: Direct Script Include](#option-2-direct-script-include-without-npm)
 - [Usage](#usage)
 - [Configuration Options](#configuration-options)
-- [APIs](#apis)
-- [SSAI Support](#support-for-ssai-ads)
+- [API Reference](#api-reference)
+- [Ad Tracking Support](#ad-tracking-support)
 - [Data Model](#data-model)
 - [Support](#support)
 - [Contributing](#contributing)
@@ -38,11 +38,13 @@ The New Relic Video.js Tracker provides comprehensive video analytics for applic
 Install the package using your preferred package manager:
 
 **NPM:**
+
 ```bash
 npm install @newrelic/video-videojs
 ```
 
 **Yarn:**
+
 ```bash
 yarn add @newrelic/video-videojs
 ```
@@ -58,7 +60,7 @@ For quick integration without a build system, include the tracker directly in yo
     <!-- Video.js Player -->
     <link href="https://vjs.zencdn.net/7.20.3/video-js.css" rel="stylesheet" />
     <script src="https://vjs.zencdn.net/7.20.3/video.js"></script>
-    
+
     <!-- New Relic Video.js Tracker -->
     <script src="path/to/newrelic-video-videojs.min.js"></script>
   </head>
@@ -74,10 +76,10 @@ For quick integration without a build system, include the tracker directly in yo
       // Configure New Relic tracker with info from one.newrelic.com
       const options = {
         info: {
-          licenseKey: "YOUR_LICENSE_KEY",
-          beacon: "YOUR_BEACON_URL",
-          applicationId: "YOUR_APP_ID"
-        }
+          licenseKey: 'YOUR_LICENSE_KEY',
+          beacon: 'YOUR_BEACON_URL',
+          applicationId: 'YOUR_APP_ID',
+        },
       };
 
       // Initialize tracker
@@ -121,8 +123,8 @@ const options = {
   info: {
     licenseKey: 'YOUR_LICENSE_KEY',
     beacon: 'YOUR_BEACON_URL',
-    applicationId: 'YOUR_APP_ID'
-  }
+    applicationId: 'YOUR_APP_ID',
+  },
 };
 
 // Initialize tracker
@@ -136,17 +138,17 @@ const options = {
   info: {
     licenseKey: 'YOUR_LICENSE_KEY',
     beacon: 'YOUR_BEACON_URL',
-    applicationId: 'YOUR_APP_ID'
+    applicationId: 'YOUR_APP_ID',
   },
   config: {
-    qoeAggregate: true,        // Enable QoE event aggregation
-    qoeIntervalFactor: 2       // Send QoE events every 2 harvest cycles
+    qoeAggregate: true, // Enable QoE event aggregation
+    qoeIntervalFactor: 2, // Send QoE events every 2 harvest cycles
   },
   customData: {
     contentTitle: 'My Video Title',
     customPlayerName: 'MyCustomPlayer',
-    customAttribute: 'customValue'
-  }
+    customAttribute: 'customValue',
+  },
 };
 
 const tracker = new VideojsTracker(player, options);
@@ -156,10 +158,10 @@ const tracker = new VideojsTracker(player, options);
 
 ### QoE (Quality of Experience) Settings
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `qoeAggregate` | boolean | `false` | Enable Quality of Experience event aggregation. Set to `true` to collect QoE metrics like startup time, buffering, and average bitrate. |
-| `qoeIntervalFactor` | number | `1` | Controls QoE event frequency. A value of `N` sends QoE events once every N harvest cycles. Must be a positive integer. QoE events are always included on first and final harvest cycles. |
+| Option              | Type    | Default | Description                                                                                                                                                                              |
+| ------------------- | ------- | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `qoeAggregate`      | boolean | `false` | Enable Quality of Experience event aggregation. Set to `true` to collect QoE metrics like startup time, buffering, and average bitrate.                                                  |
+| `qoeIntervalFactor` | number  | `1`     | Controls QoE event frequency. A value of `N` sends QoE events once every N harvest cycles. Must be a positive integer. QoE events are always included on first and final harvest cycles. |
 
 ### Custom Data
 
@@ -180,6 +182,7 @@ customData: {
 ### Core Methods
 
 #### `tracker.setUserId(userId)`
+
 Set a unique identifier for the current user.
 
 ```javascript
@@ -187,6 +190,7 @@ tracker.setUserId('user-12345');
 ```
 
 #### `tracker.setHarvestInterval(milliseconds)`
+
 Configure how frequently data is sent to New Relic. Accepts values between 1000ms (1 second) and 300000ms (5 minutes).
 
 ```javascript
@@ -194,6 +198,7 @@ tracker.setHarvestInterval(30000); // Send data every 30 seconds
 ```
 
 #### `tracker.sendCustom(actionName, attributes)`
+
 Send custom events with arbitrary attributes.
 
 ```javascript
@@ -201,11 +206,12 @@ tracker.sendCustom('VideoBookmarked', {
   timestamp: Date.now(),
   position: player.currentTime(),
   userId: 'user-12345',
-  bookmarkId: 'bookmark-789'
+  bookmarkId: 'bookmark-789',
 });
 ```
 
 #### `tracker.setOptions(options)`
+
 Update tracker configuration after initialization.
 
 ```javascript
@@ -213,8 +219,8 @@ tracker.setOptions({
   customData: {
     contentTitle: 'New Video Title',
     season: '1',
-    episode: '3'
-  }
+    episode: '3',
+  },
 });
 ```
 
@@ -231,11 +237,11 @@ const tracker = new VideojsTracker(player, {
   info: {
     licenseKey: 'YOUR_LICENSE_KEY',
     beacon: 'YOUR_BEACON_URL',
-    applicationId: 'YOUR_APP_ID'
+    applicationId: 'YOUR_APP_ID',
   },
   config: {
-    qoeAggregate: true
-  }
+    qoeAggregate: true,
+  },
 });
 
 // Set user context
@@ -248,7 +254,7 @@ tracker.setHarvestInterval(30000);
 player.on('userEngagement', () => {
   tracker.sendCustom('UserEngaged', {
     action: 'like',
-    timestamp: Date.now()
+    timestamp: Date.now(),
   });
 });
 ```
@@ -301,57 +307,45 @@ Four distinct bitrate metrics provide complete quality analysis:
 
 ## Support
 
-### Community Support
+Should you need assistance with New Relic products, you are in good hands with several support channels.
 
-New Relic has open-sourced this project. This project is provided AS-IS WITHOUT WARRANTY OR DEDICATED SUPPORT.
+If the issue has been confirmed as a bug or is a feature request, please file a [GitHub issue](../../issues).
 
-- **Explorers Hub** - Join the discussion at [discuss.newrelic.com](https://discuss.newrelic.com) where community members collaborate on solutions and share best practices
-- **GitHub Issues** - Report bugs and request features in the [Issues tab](../../issues)
-- **Documentation** - Refer to [datamodel.md](./datamodel.md) and [DEVELOPING.md](./DEVELOPING.md) for detailed information
+### Support Channels
 
-### Reporting Issues
+- **[New Relic Documentation](https://docs.newrelic.com)**: Comprehensive guidance for using our platform
+- **[New Relic Community](https://discuss.newrelic.com)**: The best place to engage in troubleshooting questions
+- **[New Relic University](https://learn.newrelic.com)**: A range of online training for New Relic users of every level
+- **[New Relic Technical Support](https://support.newrelic.com)**: 24/7/365 ticketed support. Read more about our [Technical Support Offerings](https://docs.newrelic.com/docs/licenses/license-information/general-usage-licenses/support-plan)
 
-Before creating a new issue:
+### Additional Resources
 
-1. Search existing issues to avoid duplicates
-2. Check the [datamodel.md](./datamodel.md) for attribute and event documentation
-3. Include your Video.js version, tracker version, and browser information
-4. Provide reproduction steps and sample code when possible
+- **[datamodel.md](./datamodel.md)** - Complete event and attribute reference
+- **[DEVELOPING.md](./DEVELOPING.md)** - Building and testing instructions
+- **[REVIEW.md](./REVIEW.md)** - Code review guidelines
 
 ## Contributing
 
-We welcome contributions! Whether it's bug fixes, new features, or documentation improvements, your help makes this project better.
+We encourage your contributions to improve the Video.js Tracker! Keep in mind that when you submit your pull request, you'll need to sign the CLA via the click-through using CLA-Assistant. You only have to sign the CLA one time per project.
 
-### How to Contribute
+If you have any questions, or to execute our corporate CLA (which is required if your contribution is on behalf of a company), drop us an email at opensource@newrelic.com.
 
-1. **Fork and Clone** - Fork this repository and clone it locally
-2. **Create a Branch** - Create a feature branch for your changes
-3. **Make Changes** - Implement your changes with clear, commented code
-4. **Test** - Test your changes thoroughly (see [DEVELOPING.md](./DEVELOPING.md))
-5. **Submit PR** - Create a pull request with a clear description of changes
+For more details on how best to contribute, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-### Contributor License Agreement
+### A Note About Vulnerabilities
 
-When you submit a pull request, you'll need to sign the CLA via CLA-Assistant. You only need to sign once per project.
+As noted in our [security policy](../../security/policy), New Relic is committed to the privacy and security of our customers and their data. We believe that providing coordinated disclosure by security researchers and engaging with the security community are important means to achieve our security goals.
 
-- **Individual contributions** - Automatic CLA signing via GitHub
-- **Corporate contributions** - Contact opensource@newrelic.com for corporate CLA
+If you believe you have found a security vulnerability in this project or any of New Relic's products or websites, we welcome and greatly appreciate you reporting it to New Relic through our [bug bounty program](https://docs.newrelic.com/docs/security/security-privacy/information-security/report-security-vulnerabilities/).
 
-### Security Vulnerabilities
+### Acknowledgments
 
-**Please do not report security vulnerabilities through public GitHub issues.**
+If you would like to contribute to this project, review [these guidelines](./CONTRIBUTING.md).
 
-If you believe you've found a security vulnerability in this project or any New Relic product:
-
-- Report it through [New Relic's bug bounty program](https://docs.newrelic.com/docs/security/security-privacy/information-security/report-security-vulnerabilities/)
-- Review our [security policy](../../security/policy) for more information
-
-New Relic is committed to coordinated disclosure and working with security researchers to address vulnerabilities responsibly.
+To all contributors, we thank you! Without your contribution, this project would not be what it is today.
 
 ## License
 
-This project is licensed under the [Apache 2.0](http://apache.org/licenses/LICENSE-2.0.txt) License.
+The Video.js Tracker is licensed under the [Apache 2.0](http://apache.org/licenses/LICENSE-2.0.txt) License.
 
----
-
-**Questions?** Visit the [Explorers Hub](https://discuss.newrelic.com) or check out our [documentation](./datamodel.md).
+The Video.js Tracker also uses source code from third-party libraries. Full details on which libraries are used and the terms under which they are licensed can be found in the [third-party notices document](./THIRD_PARTY_NOTICES.md).
