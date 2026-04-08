@@ -1,12 +1,45 @@
-## [4.0.3](https://github.com/newrelic/video-videojs-js/compare/v4.0.2...v4.0.3) (2025-11-21)
+## [4.1.0](https://github.com/newrelic/video-videojs-js/compare/v4.0.3...v4.1.0) (2026-04-08)
 
+### Breaking Changes
+
+- **Method Renames:** Bitrate methods renamed for clarity
+  - `getMeasuredBitrate()` → `getSegmentDownloadBitrate()` - ABR bandwidth estimate from player stats
+  - `getDownloadBitrate()` → `getNetworkDownloadBitrate()` - Instantaneous network throughput
+  - **Note:** Most users won't be affected as these methods are primarily used internally by the tracker
+
+### Deprecated
+
+- **Removed `getRenditionBitrate()` method** - No longer needed with improved bitrate tracking system
+
+### Enhancements
+
+- **Bitrate Metrics Refactoring:**
+  - Implemented consistent fallback pattern across all bitrate methods (VHS direct access → tech wrapper fallback)
+  - Simplified network download bitrate to use direct throughput access
+  - Enhanced bitrate tracking with four distinct metrics for comprehensive quality analysis
+  - Updated all tech wrappers (VHS, hls.js, Shaka) with consistent implementations
+
+- **Comprehensive Documentation Rewrite:**
+  - **README.md:** Complete rewrite with professional structure, badges, features section, table of contents, two installation options, expanded API reference, and clear New Relic support channels
+  - **datamodel.md:** Complete rewrite with comprehensive event reference, all four bitrate metrics definitions, QoE attributes, complete attribute tables for all event types, and SSAI/DAI support documentation
+  - **DEVELOPING.md:** Complete development guide with setup, build instructions, project structure, testing guidelines, and release process
+  - **REVIEW.md:** NEW FILE - Code review guidelines and standards for contributors
+
+### Documentation
+
+- Added clear instructions to obtain configuration from [one.newrelic.com](https://one.newrelic.com)
+- Updated all bitrate metric definitions with accurate sources and use cases
+- Added comprehensive API reference with method signatures and examples
+- Enhanced support section with multiple New Relic support channels
+- Added third-party library license disclosure
+
+## [4.0.3](https://github.com/newrelic/video-videojs-js/compare/v4.0.2...v4.0.3) (2025-11-21)
 
 ### Bug Fixes
 
-* removed github token ([f5f9ade](https://github.com/newrelic/video-videojs-js/commit/f5f9ade01c9af411d72ec74874f8d0750c5f0f66))
+- removed github token ([f5f9ade](https://github.com/newrelic/video-videojs-js/commit/f5f9ade01c9af411d72ec74874f8d0750c5f0f66))
 
 # CHANGELOG
-
 
 ## [4.0.2] - 2025-10-21
 
