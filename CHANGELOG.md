@@ -1,3 +1,14 @@
+## [4.1.1](https://github.com/newrelic/video-videojs-js/compare/v4.1.0...v4.1.1) (2026-04-17)
+
+### Documentation
+
+- **README.md:** Added Best Practices section (contentTitle, userId, custom attributes, gradual rollout with feature flags)
+- **README.md:** Promoted Bitrate Metrics to top-level section with detailed table format and NRQL query examples
+- **README.md:** Updated Data Model event descriptions to include heartbeats and media errors
+- **README.md:** Fixed DATAMODEL.md link casing
+- **README.md:** Updated Table of Contents with new sections (Prerequisites, Best Practices, Bitrate Metrics)
+- **README.md:** Renamed Contributing to Contribute for consistency across trackers
+
 ## [4.1.0](https://github.com/newrelic/video-videojs-js/compare/v4.0.3...v4.1.0) (2026-04-08)
 
 ### Breaking Changes

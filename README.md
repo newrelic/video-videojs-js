@@ -22,13 +22,16 @@ The New Relic Video.js Tracker provides comprehensive video analytics for applic
 - [Installation](#installation)
   - [Option 1: NPM/Yarn](#option-1-install-via-npmyarn)
   - [Option 2: Direct Script Include](#option-2-direct-script-include-without-npm)
+- [Prerequisites](#prerequisites)
 - [Usage](#usage)
+- [Best Practices](#best-practices)
 - [Configuration Options](#configuration-options)
 - [API Reference](#api-reference)
+- [Bitrate Metrics](#bitrate-metrics)
 - [Ad Tracking Support](#ad-tracking-support)
 - [Data Model](#data-model)
 - [Support](#support)
-- [Contributing](#contributing)
+- [Contribute](#contribute)
 - [License](#license)
 
 ## Installation
@@ -94,6 +97,13 @@ For quick integration without a build system, include the tracker directly in yo
 1. **Get Configuration** - Visit [one.newrelic.com](https://one.newrelic.com) and follow the Streaming Video & Ads onboarding flow to get your `licenseKey`, `beacon`, `applicationID`, and integration code snippet.
 2. **Integrate** - Include the script in your HTML and initialize with your configuration
 
+## Prerequisites
+
+Before using the tracker, ensure you have:
+
+- **New Relic Account** - Active New Relic account with valid application credentials (`beacon`, `applicationId`, `licenseKey`)
+- **Video.js Player** - Video.js player integrated in your application
+
 ## Usage
 
 ### Getting Your Configuration
@@ -150,6 +160,148 @@ const options = {
 
 const tracker = new VideojsTracker(player, options);
 ```
+
+## Best Practices
+
+### 1. Setting `contentTitle`
+
+The `contentTitle` attribute will display a value if your video metadata contains title information. If the metadata does not include a title, `contentTitle` will not be populated. For best results, ensure you explicitly set this attribute during initialization:
+
+```javascript
+const tracker = new VideojsTracker(player, {
+  info: {
+    licenseKey: 'YOUR_LICENSE_KEY',
+    beacon: 'YOUR_BEACON_URL',
+    applicationId: 'YOUR_APP_ID',
+  },
+  customData: {
+    contentTitle: 'My Video Title', // Explicitly set from your metadata
+  },
+});
+```
+
+If your title changes dynamically (e.g., playlist or queue):
+
+```javascript
+tracker.setOptions({
+  customData: {
+    contentTitle: 'New Video Title',
+  },
+});
+```
+
+### 2. Setting `userId`
+
+Set a user identifier to track video analytics per user:
+
+```javascript
+// Set userId during initialization
+const tracker = new VideojsTracker(player, {
+  info: {
+    licenseKey: 'YOUR_LICENSE_KEY',
+    beacon: 'YOUR_BEACON_URL',
+    applicationId: 'YOUR_APP_ID',
+  },
+  customData: {
+    contentTitle: 'Video Title',
+    userId: 'user-12345',
+  },
+});
+
+// Or set userId separately using the API method
+tracker.setUserId('user-12345');
+```
+
+### 3. Adding Custom Attributes for Your Deployment
+
+Add custom attributes unique to your deployment to improve data aggregation and analysis:
+
+```javascript
+const tracker = new VideojsTracker(player, {
+  info: {
+    licenseKey: 'YOUR_LICENSE_KEY',
+    beacon: 'YOUR_BEACON_URL',
+    applicationId: 'YOUR_APP_ID',
+  },
+  customData: {
+    // Required for identification
+    contentTitle: videoMetadata.title,
+    userId: currentUser.id,
+
+    // Custom attributes for your deployment
+    subscriptionTier: 'premium', // User subscription level
+    contentProvider: 'studio-abc', // Content source
+    region: 'us-west-2', // Geographic region
+    cdnProvider: 'cloudflare', // CDN being used
+    deviceType: 'desktop', // Device category
+    appVersion: '2.1.0', // Your app version
+    campaign: 'spring-promo', // Marketing campaign
+  },
+});
+```
+
+**Use these attributes in New Relic queries:**
+
+```sql
+-- Analyze by subscription tier
+SELECT count(*) FROM VideoAction WHERE actionName = 'CONTENT_START'
+FACET subscriptionTier SINCE 1 day ago
+
+-- Monitor by region
+SELECT average(contentNetworkDownloadBitrate) FROM VideoAction
+FACET region SINCE 1 hour ago
+```
+
+### 4. Gradual Rollout with Feature Flags
+
+When deploying to production, use feature flags to enable the tracker gradually. This helps you:
+
+- Validate data collection without impacting all users
+- Monitor performance impact at scale
+- Catch issues before full deployment
+- Control monitoring costs
+
+```javascript
+// Example using a feature flag
+const rolloutPercentage = 5; // Start with 5% of users
+
+function shouldEnableTracking(userId) {
+  // Simple percentage-based rollout
+  const hash = userId
+    .split('')
+    .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return hash % 100 < rolloutPercentage;
+}
+
+const player = videojs('myVideo');
+player.version = videojs.VERSION;
+
+// Only initialize tracker if user is in rollout
+if (shouldEnableTracking(currentUser.id)) {
+  const tracker = new VideojsTracker(player, {
+    info: {
+      licenseKey: 'YOUR_LICENSE_KEY',
+      beacon: 'YOUR_BEACON_URL',
+      applicationId: 'YOUR_APP_ID',
+    },
+    customData: {
+      contentTitle: videoMetadata.title,
+      userId: currentUser.id,
+      rolloutGroup: `${rolloutPercentage}%`, // Track which rollout group
+    },
+  });
+}
+```
+
+**Recommended Rollout Schedule:**
+
+| Phase     | Percentage | Duration  | Validation                         |
+| --------- | ---------- | --------- | ---------------------------------- |
+| Initial   | 5%         | 2-3 days  | Verify data flowing to New Relic   |
+| Early     | 15%        | 3-5 days  | Check data quality and performance |
+| Expansion | 25%        | 5-7 days  | Validate across device types       |
+| Majority  | 50%        | 1-2 weeks | Monitor at scale                   |
+| Full      | 100%       | Ongoing   | Complete deployment                |
 
 ## Configuration Options
 
@@ -256,6 +408,28 @@ player.on('userEngagement', () => {
 });
 ```
 
+## Bitrate Metrics
+
+The tracker captures four distinct bitrate metrics providing complete quality analysis:
+
+| Attribute                       | Description                                                                                                                       | Use Case                                     |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| `contentBitrate`                | Encoding bitrate (in bps) of the currently playing rendition from the manifest                                                    | Monitor actual video quality being delivered |
+| `contentManifestBitrate`        | Maximum available bitrate (in bps) across all renditions in the manifest. Represents the highest quality capability of the stream | Understand maximum quality potential         |
+| `contentSegmentDownloadBitrate` | ABR estimated bandwidth (in bps) from the player's stats object, used by the ABR algorithm for quality switching decisions        | Analyze ABR decision-making                  |
+| `contentNetworkDownloadBitrate` | Instantaneous download throughput (in bps) from the most recent segment download. Represents raw network download speed           | Monitor real-time network performance        |
+
+### Bitrate Monitoring Example
+
+```javascript
+// All bitrate metrics are automatically captured and sent with each event
+// Access them in New Relic Insights queries:
+
+// NRQL Query Examples:
+// SELECT average(contentNetworkDownloadBitrate) FROM VideoAction WHERE actionName = 'CONTENT_HEARTBEAT'
+// SELECT contentBitrate, contentSegmentDownloadBitrate FROM VideoAction WHERE actionName = 'CONTENT_RENDITION_CHANGE'
+```
+
 ## Ad Tracking Support
 
 The tracker provides comprehensive ad tracking capabilities:
@@ -286,21 +460,12 @@ const tracker = new VideojsTracker(player, options);
 
 The tracker captures comprehensive video analytics across four event types:
 
-- **VideoAction** - Playback events (play, pause, buffer, seek, quality changes)
+- **VideoAction** - Playback events (play, pause, buffer, seek, quality changes, heartbeats)
 - **VideoAdAction** - Ad events (ad start, quartiles, completions, clicks)
-- **VideoErrorAction** - Error events (playback failures, network errors)
+- **VideoErrorAction** - Error events (playback failures, network errors, media errors)
 - **VideoCustomAction** - Custom events defined by your application
 
-### Bitrate Metrics
-
-Four distinct bitrate metrics provide complete quality analysis:
-
-- `contentBitrate` - Current rendition encoding bitrate
-- `contentManifestBitrate` - Maximum available quality
-- `contentSegmentDownloadBitrate` - ABR bandwidth estimate
-- `contentNetworkDownloadBitrate` - Instantaneous throughput
-
-**Full Documentation:** See [datamodel.md](./datamodel.md) for complete event and attribute reference.
+**Full Documentation:** See [DATAMODEL.md](./DATAMODEL.md) for complete event and attribute reference.
 
 ## Support
 
@@ -317,11 +482,11 @@ If the issue has been confirmed as a bug or is a feature request, please file a 
 
 ### Additional Resources
 
-- **[datamodel.md](./datamodel.md)** - Complete event and attribute reference
+- **[DATAMODEL.md](./DATAMODEL.md)** - Complete event and attribute reference
 - **[DEVELOPING.md](./DEVELOPING.md)** - Building and testing instructions
 - **[REVIEW.md](./REVIEW.md)** - Code review guidelines
 
-## Contributing
+## Contribute
 
 We encourage your contributions to improve the Video.js Tracker! Keep in mind that when you submit your pull request, you'll need to sign the CLA via the click-through using CLA-Assistant. You only have to sign the CLA one time per project.
 
@@ -329,13 +494,11 @@ If you have any questions, or to execute our corporate CLA (which is required if
 
 For more details on how best to contribute, see [CONTRIBUTING.md](./CONTRIBUTING.md).
 
-### A Note About Vulnerabilities
+### A note about vulnerabilities
 
 As noted in our [security policy](../../security/policy), New Relic is committed to the privacy and security of our customers and their data. We believe that providing coordinated disclosure by security researchers and engaging with the security community are important means to achieve our security goals.
 
 If you believe you have found a security vulnerability in this project or any of New Relic's products or websites, we welcome and greatly appreciate you reporting it to New Relic through our [bug bounty program](https://docs.newrelic.com/docs/security/security-privacy/information-security/report-security-vulnerabilities/).
-
-### Acknowledgments
 
 If you would like to contribute to this project, review [these guidelines](./CONTRIBUTING.md).
 
