@@ -326,6 +326,8 @@ customData: {
 }
 ```
 
+> **Limit:** The maximum total number of custom attributes per event is **150**. Any attributes beyond this limit will be dropped.
+
 ## API Reference
 
 ### Core Methods
