@@ -529,12 +529,25 @@ export function extractTargetDuration(manifestText) {
   return match ? parseInt(match[1], 10) : null;
 }
 
+async function fetchTextOrThrow(url) {
+  const response = await fetch(url, { credentials: 'include' });
+
+  if (response.ok === false) {
+    throw new Error(
+      `Manifest request failed: ${response.status || 'unknown'} ${
+        response.statusText || 'Request failed'
+      }`
+    );
+  }
+
+  return await response.text();
+}
+
 /**
  * Fetches HLS master manifest and returns master text + first media playlist URL
  */
 export async function getHLSMasterManifest(manifestUrl) {
-  const response = await fetch(manifestUrl, { credentials: 'include' });
-  const masterText = await response.text();
+  const masterText = await fetchTextOrThrow(manifestUrl);
 
   // Find first media playlist URL
   const lines = masterText.split('\n');
@@ -554,16 +567,14 @@ export async function getHLSMasterManifest(manifestUrl) {
  * Fetches HLS media playlist and returns text
  */
 export async function getHLSMediaPlaylist(playlistUrl) {
-  const response = await fetch(playlistUrl, { credentials: 'include' });
-  return await response.text();
+  return await fetchTextOrThrow(playlistUrl);
 }
 
 /**
  * Fetches DASH MPD manifest and returns XML text
  */
 export async function getDASHManifest(manifestUrl) {
-  const response = await fetch(manifestUrl, { credentials: 'include' });
-  return await response.text();
+  return await fetchTextOrThrow(manifestUrl);
 }
 
 /**

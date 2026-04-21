@@ -121,6 +121,14 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.lastMediaPlaylistText = null;
     this.manifestTargetDuration = null; // For optimal live polling interval
 
+    this.onPause = this.onPause.bind(this);
+    this.onPlaying = this.onPlaying.bind(this);
+    this.onSeeking = this.onSeeking.bind(this);
+    this.onSeeked = this.onSeeked.bind(this);
+    this.onWaiting = this.onWaiting.bind(this);
+    this.onEnded = this.onEnded.bind(this);
+    this.onTimeUpdate = this.onTimeUpdate.bind(this);
+
     console.log(`[MT - ${getTimestamp()}] MediaTailorAdsTracker initialized`, {
       endpoint: this.mediaTailorEndpoint,
       config: this.config,
@@ -178,13 +186,13 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     super.registerListeners();
 
     // Bind MediaTailor-specific event listeners
-    this.player.on('pause', this.onPause.bind(this));
-    this.player.on('playing', this.onPlaying.bind(this));
-    this.player.on('seeking', this.onSeeking.bind(this));
-    this.player.on('seeked', this.onSeeked.bind(this));
-    this.player.on('waiting', this.onWaiting.bind(this));
-    this.player.on('ended', this.onEnded.bind(this));
-    this.player.on('timeupdate', this.onTimeUpdate.bind(this));
+    this.player.on('pause', this.onPause);
+    this.player.on('playing', this.onPlaying);
+    this.player.on('seeking', this.onSeeking);
+    this.player.on('seeked', this.onSeeked);
+    this.player.on('waiting', this.onWaiting);
+    this.player.on('ended', this.onEnded);
+    this.player.on('timeupdate', this.onTimeUpdate);
     console.log(`[MT - ${getTimestamp()}] Event listeners registered`);
   }
 
