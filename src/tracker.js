@@ -8,11 +8,12 @@ import ImaAdsTracker from './ads/ima';
 import BrightcoveImaAdsTracker from './ads/brightcove-ima';
 import FreewheelAdsTracker from './ads/freewheel';
 import DaiAdsTracker from './ads/dai';
+import MediaTailorAdsTracker from './ads/media-tailor';
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
   constructor(player, options) {
     super(player, options);
-
+    this.options = options;
     this.isContentEnd = false;
     this.imaAdCuePoints = '';
     this.daiInitialized = false;
@@ -318,6 +319,21 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
   onDownload(e) {
     this.sendDownload({ state: e.type });
+
+    // Check if MediaTailor should be used after the source is loaded
+    // Only check on 'loadstart' to avoid multiple checks
+    if (
+      !this.adsTracker &&
+      e.type === 'loadstart' &&
+      MediaTailorAdsTracker.isUsing(this.player)
+    ) {
+      console.log(
+        'VideojsTracker: Creating MediaTailorAdsTracker after source load'
+      );
+      this.setAdsTracker(new MediaTailorAdsTracker(this.player, this.options));
+      // MediaTailor SSAI starts with content, not ads (unlike client-side ad frameworks)
+      this.adsTracker.setIsAd(false);
+    }
   }
 
   // DAI methods
@@ -369,15 +385,35 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.FreewheelAdsCompleted = true;
   }
 
+  /**
+   * Check if ads tracker is currently in ad mode
+   * @returns {boolean} True if ads are playing
+   */
+  isAdsTrackerActive() {
+    return this.adsTracker && this.adsTracker.isAd && this.adsTracker.isAd();
+  }
+
   onPlay() {
     this.sendRequest();
   }
 
   onPause() {
+    // Don't send CONTENT_PAUSE if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
+    // Don't send CONTENT_PAUSE if video has ended (CONTENT_END will be sent instead)
+    if (this.player.ended()) {
+      return;
+    }
     this.sendPause();
   }
 
   onPlaying() {
+    // Don't send CONTENT_RESUME if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendResume();
     this.sendBufferEnd();
   }
@@ -402,10 +438,18 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   onSeeking() {
+    // Don't send CONTENT_SEEK_START if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendSeekStart();
   }
 
   onSeeked() {
+    // Don't send CONTENT_SEEK_END if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendSeekEnd();
   }
 
@@ -420,6 +464,10 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   onWaiting(e) {
+    // Don't send CONTENT_BUFFER_START if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendBufferStart();
   }
 
@@ -439,4 +487,5 @@ export {
   ImaAdsTracker,
   BrightcoveImaAdsTracker,
   FreewheelAdsTracker,
+  MediaTailorAdsTracker,
 };
