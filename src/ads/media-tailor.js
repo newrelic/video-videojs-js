@@ -121,14 +121,6 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.lastMediaPlaylistText = null;
     this.manifestTargetDuration = null; // For optimal live polling interval
 
-    this.onPause = this.onPause.bind(this);
-    this.onPlaying = this.onPlaying.bind(this);
-    this.onSeeking = this.onSeeking.bind(this);
-    this.onSeeked = this.onSeeked.bind(this);
-    this.onWaiting = this.onWaiting.bind(this);
-    this.onEnded = this.onEnded.bind(this);
-    this.onTimeUpdate = this.onTimeUpdate.bind(this);
-
     console.log(`[MT - ${getTimestamp()}] MediaTailorAdsTracker initialized`, {
       endpoint: this.mediaTailorEndpoint,
       config: this.config,
@@ -185,7 +177,16 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   registerListeners() {
     super.registerListeners();
 
-    // Bind MediaTailor-specific event listeners
+    // Bind before registering — super(player) calls registerListeners() before
+    // the constructor body runs, so bindings must happen here, not in the constructor.
+    this.onPause = this.onPause.bind(this);
+    this.onPlaying = this.onPlaying.bind(this);
+    this.onSeeking = this.onSeeking.bind(this);
+    this.onSeeked = this.onSeeked.bind(this);
+    this.onWaiting = this.onWaiting.bind(this);
+    this.onEnded = this.onEnded.bind(this);
+    this.onTimeUpdate = this.onTimeUpdate.bind(this);
+
     this.player.on('pause', this.onPause);
     this.player.on('playing', this.onPlaying);
     this.player.on('seeking', this.onSeeking);
@@ -488,7 +489,16 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       console.log(`[MT - ${getTimestamp()}] DASH: ${ads.length} ad break(s) found`);
 
       if (ads.length > 0) {
-        this.mergeNewAds(ads);
+        this.mergeNewAds(ads); // also triggers tracking fetch
+      } else if (
+        this.streamType === STREAM_TYPE.VOD &&
+        this.trackingUrl &&
+        !this.hasAttemptedTrackingFetch
+      ) {
+        // No SCTE-35 markers in manifest - fall back to tracking API directly
+        console.log(`[MT - ${getTimestamp()}] DASH: no manifest cues, fetching tracking API`);
+        this.hasAttemptedTrackingFetch = true;
+        this.getAndProcessTrackingMetadata();
       }
     } catch (error) {
       console.log(`[MT - ${getTimestamp()}] DASH fetch error:`, error);
@@ -903,13 +913,19 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
               position: activeAdBreak.adPosition,
             });
 
-            // Send AD_REQUEST before AD_START (required sequence)
+            // NOTE: If the tracking API was slow to respond, the no-pods path
+            // (below) will have already called sendStart() on this break.
+            // Calling sendStart() again here is intentional — video-core's state
+            // machine suppresses duplicate AD_START transitions (AD_START →
+            // AD_START is a no-op), so nothing double-fires in New Relic. Once
+            // pods are populated by the tracking API, this path takes over and
+            // provides pod-level metadata (title, duration, creativeId) for all
+            // subsequent events in the break.
             this.sendRequest({
               adPartner: 'aws-mediatailor',
               adPosition: activeAdBreak.adPosition,
             });
 
-            // Send AD_START
             this.sendStart({
               adPartner: 'aws-mediatailor',
               adPosition: activeAdBreak.adPosition,

@@ -46,6 +46,7 @@ export function detectStreamType(duration) {
 
 /**
  * Extracts tracking URL from sessionized manifest URL
+ * Format: /v1/tracking/{customerId}/{configName}/{sessionId}
  */
 export function extractTrackingUrl(manifestUrl) {
   const match = manifestUrl.match(/sessionId=([^&]+)/);
@@ -56,10 +57,12 @@ export function extractTrackingUrl(manifestUrl) {
 
   const sessionId = match[1];
 
-  // Convert: /v1/master/.../master.m3u8?aws.sessionId=xxx → /v1/tracking/xxx
+  // Convert manifest URL to tracking URL:
+  // /v1/master/{id}/{name}/master.m3u8?aws.sessionId=xxx → /v1/tracking/{id}/{name}/{sessionId}
+  // /v1/dash/{id}/{name}/index.mpd?aws.sessionId=xxx    → /v1/tracking/{id}/{name}/{sessionId}
   const trackingUrl = manifestUrl
     .replace(/\/v1\/(master|session|dash)\//, '/v1/tracking/')
-    .replace(/\/(master\.m3u8|manifest\.mpd).*$/, `/${sessionId}`);
+    .replace(/\/[^/]*\.(m3u8|mpd).*$/, `/${sessionId}`);
 
   return trackingUrl;
 }
@@ -578,93 +581,110 @@ export async function getDASHManifest(manifestUrl) {
 }
 
 /**
- * Parses DASH XML text for SCTE-35 EventStream markers
- * Supports multiple SCTE-35 schemeIdUri formats used by MediaTailor
+ * Parses ISO 8601 duration string to seconds
+ * e.g. "PT1M14S" → 74, "PT10S" → 10, "PT12M54S" → 774
+ */
+export function parseIsoDuration(durationStr) {
+  if (!durationStr) return 0;
+  const match = durationStr.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?/);
+  if (!match) return 0;
+  const hours = parseFloat(match[1] || 0);
+  const minutes = parseFloat(match[2] || 0);
+  const seconds = parseFloat(match[3] || 0);
+  return hours * 3600 + minutes * 60 + seconds;
+}
+
+/**
+ * Parses DASH MPD for ad breaks — supports both MULTI_PERIOD and SINGLE_PERIOD formats.
+ *
+ * MULTI_PERIOD (MediaTailor default): ad breaks are separate <Period> elements
+ * whose <BaseURL> points to segments.mediatailor.amazonaws.com.
+ *
+ * SINGLE_PERIOD: the entire stream is one period; ads are signalled via
+ * SCTE-35 <EventStream> elements inside that period.
  */
 export function parseDASHManifestForAds(xmlText) {
   const parser = new DOMParser();
   const xml = parser.parseFromString(xmlText, 'text/xml');
   const ads = [];
 
-  // Check for parsing errors
   const parserError = xml.querySelector('parsererror');
   if (parserError) {
     console.error('[MT] DASH XML parse error:', parserError.textContent);
     return ads;
   }
 
-  // Get MPD element to extract timescale if needed
-  const mpd = xml.documentElement;
-  const mpdTimescale = parseFloat(mpd.getAttribute('timescale') || '1');
+  const periods = xml.querySelectorAll('Period');
+  console.log(`[MT] Found ${periods.length} Period(s) in DASH manifest`);
 
-  // Find all EventStream elements with SCTE-35
-  // Common schemeIdUri values:
-  // - urn:scte:scte35:2013:bin (binary SCTE-35)
-  // - urn:scte:scte35:2014:xml (XML SCTE-35)
-  // - urn:scte:scte35:2013:xml (older XML format)
-  const eventStreams = xml.querySelectorAll(
-    'EventStream[schemeIdUri*="scte35"], EventStream[schemeIdUri*="SCTE35"]'
-  );
+  if (periods.length > 1) {
+    // ── MULTI_PERIOD ──────────────────────────────────────────────────────────
+    // Ad periods are identified by a BaseURL pointing to the MediaTailor CDN.
+    periods.forEach((period) => {
+      const baseUrlEl = period.querySelector('BaseURL');
+      const baseUrl = baseUrlEl ? baseUrlEl.textContent.trim() : '';
 
-  console.log(`[MT] Found ${eventStreams.length} SCTE-35 EventStream(s) in DASH manifest`);
+      if (!baseUrl.includes(MT_SEGMENT_PATTERN)) {
+        return; // content period
+      }
 
-  eventStreams.forEach((stream, streamIndex) => {
-    const schemeIdUri = stream.getAttribute('schemeIdUri');
-    const value = stream.getAttribute('value') || '';
-    const timescale = parseFloat(stream.getAttribute('timescale') || mpdTimescale);
+      const periodId = period.getAttribute('id') || '';
+      const startTime = parseIsoDuration(period.getAttribute('start') || 'PT0S');
+      const duration = parseIsoDuration(period.getAttribute('duration') || '');
 
-    console.log(`[MT] EventStream ${streamIndex + 1}:`, {
-      schemeIdUri,
-      value,
-      timescale,
-    });
+      if (duration < MIN_AD_DURATION) {
+        console.log(`[MT] Skipping period ${periodId} - duration too short (${duration}s)`);
+        return;
+      }
 
-    const events = stream.querySelectorAll('Event');
+      console.log(`[MT] Ad period detected: ${periodId}`, { startTime, duration });
 
-    events.forEach((event, eventIndex) => {
-      // Get timing attributes
-      const presentationTime = parseFloat(event.getAttribute('presentationTime') || 0);
-      const duration = parseFloat(event.getAttribute('duration') || 0);
-      const eventId = event.getAttribute('id') || `dash-event-${presentationTime}`;
-
-      // Convert from timescale to seconds if needed
-      const startTime = timescale !== 1 ? presentationTime / timescale : presentationTime;
-      const durationSeconds = timescale !== 1 ? duration / timescale : duration;
-
-      console.log(`[MT] Event ${eventIndex + 1}:`, {
-        id: eventId,
-        presentationTime,
-        duration,
-        timescale,
+      ads.push({
+        id: periodId,
         startTime,
-        durationSeconds,
+        duration,
+        endTime: startTime + duration,
+        source: AD_SOURCE.MANIFEST_CUE,
+        confirmedByTracking: false,
+        hasFiredStart: false,
+        hasFiredEnd: false,
+        hasFiredAdStart: false,
+        hasFiredQ1: false,
+        hasFiredQ2: false,
+        hasFiredQ3: false,
+        pods: [],
       });
+    });
+  } else {
+    // ── SINGLE_PERIOD ─────────────────────────────────────────────────────────
+    // Ads are signalled via SCTE-35 EventStream elements within the single period.
+    const eventStreams = xml.querySelectorAll(
+      'EventStream[schemeIdUri*="scte35"], EventStream[schemeIdUri*="SCTE35"]'
+    );
 
-      // Only add valid ad breaks (positive duration)
-      if (durationSeconds > MIN_AD_DURATION) {
-        // Try to extract SCTE-35 signal type and metadata
-        let signalType = null;
-        let messageData = null;
+    console.log(`[MT] Found ${eventStreams.length} SCTE-35 EventStream(s) in single-period manifest`);
 
-        // Check for Signal element (XML SCTE-35)
-        const signal = event.querySelector('Signal, scte35\\:Signal');
-        if (signal) {
-          signalType = signal.querySelector('SpliceInsert, scte35\\:SpliceInsert')
-            ? 'SpliceInsert'
-            : signal.querySelector('TimeSignal, scte35\\:TimeSignal')
-            ? 'TimeSignal'
-            : 'Unknown';
+    eventStreams.forEach((stream) => {
+      const timescale = parseFloat(stream.getAttribute('timescale') || '1');
+
+      stream.querySelectorAll('Event').forEach((event) => {
+        const presentationTime = parseFloat(event.getAttribute('presentationTime') || 0);
+        const duration = parseFloat(event.getAttribute('duration') || 0);
+        const eventId = event.getAttribute('id') || `scte35-${presentationTime}`;
+
+        const startTime = timescale !== 1 ? presentationTime / timescale : presentationTime;
+        const durationSeconds = timescale !== 1 ? duration / timescale : duration;
+
+        if (durationSeconds < MIN_AD_DURATION) {
+          console.log(`[MT] Skipping event ${eventId} - duration too short (${durationSeconds}s)`);
+          return;
         }
 
-        // Check for binary data
-        const binaryData = event.textContent?.trim();
-        if (binaryData && binaryData.length > 0) {
-          messageData = binaryData;
-        }
+        console.log(`[MT] SCTE-35 event detected: ${eventId}`, { startTime, durationSeconds });
 
         ads.push({
           id: eventId,
-          startTime: startTime,
+          startTime,
           duration: durationSeconds,
           endTime: startTime + durationSeconds,
           source: AD_SOURCE.MANIFEST_CUE,
@@ -672,26 +692,16 @@ export function parseDASHManifestForAds(xmlText) {
           hasFiredStart: false,
           hasFiredEnd: false,
           hasFiredAdStart: false,
+          hasFiredQ1: false,
+          hasFiredQ2: false,
+          hasFiredQ3: false,
           pods: [],
-          // Additional DASH-specific metadata
-          dashMetadata: {
-            schemeIdUri,
-            value,
-            timescale,
-            signalType,
-            hasMessageData: !!messageData,
-          },
         });
-      } else {
-        console.log(
-          `[MT] Skipping event ${eventId} - duration too short (${durationSeconds}s < ${MIN_AD_DURATION}s)`
-        );
-      }
+      });
     });
-  });
+  }
 
   console.log(`[MT] Parsed ${ads.length} valid ad break(s) from DASH manifest`);
-
   return ads;
 }
 
