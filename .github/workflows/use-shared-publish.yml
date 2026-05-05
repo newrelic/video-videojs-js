@@ -1,23 +1,10 @@
-name: Publish Release
+name: Build and Publish
 
 on:
-  pull_request:
-    types:
-      - closed
-    branches:
-      - master
   workflow_dispatch:
-
-permissions:
-  contents: write
-  id-token: write
 
 jobs:
   build-and-publish:
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.pull_request.merged == true &&
-       startsWith(github.event.pull_request.head.ref, 'release/'))
     uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
     with:
       s3-path: 'media-agents/browser/videojs'
