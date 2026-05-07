@@ -19,7 +19,7 @@ export default class HlsJs {
   getRenditionBitrate(tech) {
     try {
       var level = this.tech.levels[this.tech.currentLevel];
-      if (level && level.bitrate) return level.bitrate;
+      if (level && level.bitrate) return Math.round(level.bitrate);
     } catch (err) {}
     return null;
   }
@@ -50,7 +50,7 @@ export default class HlsJs {
       // Get the current active level's bitrate from manifest
       const level = this.tech.levels[this.tech.currentLevel];
       if (level && level.bitrate) {
-        return level.bitrate;
+        return Math.round(level.bitrate);
       }
     } catch (err) {}
     return null;
@@ -60,7 +60,7 @@ export default class HlsJs {
     try {
       // Return highest available bitrate from all renditions
       if (this.tech.levels && this.tech.levels.length > 0) {
-        return Math.max(...this.tech.levels.map(l => l.bitrate));
+        return Math.round(Math.max(...this.tech.levels.map(l => l.bitrate)));
       }
     } catch (err) {}
     return null;
@@ -70,14 +70,14 @@ export default class HlsJs {
     try {
       // VHS stats.bandwidth
       if (this.tech.stats && this.tech.stats.bandwidth > 0)
-        return this.tech.stats.bandwidth;
+        return Math.round(this.tech.stats.bandwidth);
     } catch (err) {}
     return null;
   }
 
   getNetworkDownloadBitrate() {
     if (this.tech.throughput && this.tech.throughput > 0) {
-      return this.tech.throughput;
+      return Math.round(this.tech.throughput);
     }
     return null;
   }

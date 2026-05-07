@@ -15,7 +15,7 @@ export default class ContribHlsTech {
   getRenditionBitrate() {
     try {
       var media = this.tech.playlists.media();
-      if (media && media.attributes) return media.attributes.BANDWIDTH;
+      if (media && media.attributes) return Math.round(media.attributes.BANDWIDTH);
     } catch (err) {}
     return null;
   }
@@ -50,7 +50,7 @@ export default class ContribHlsTech {
       // Return highest available bitrate from all renditions
       const playlists = this.tech.playlists.master.playlists;
       if (playlists && playlists.length > 0) {
-        return Math.max(...playlists.map((p) => p.attributes.BANDWIDTH));
+        return Math.round(Math.max(...playlists.map((p) => p.attributes.BANDWIDTH)));
       }
     } catch (err) {}
     return null;
@@ -61,14 +61,14 @@ export default class ContribHlsTech {
       this.tech.stats?.bandwidth !== undefined &&
       this.tech.stats.bandwidth > 0
     ) {
-      return this.tech.stats.bandwidth;
+      return Math.round(this.tech.stats.bandwidth);
     }
     return null;
   }
 
   getNetworkDownloadBitrate() {
     if (this.tech.throughput !== undefined && this.tech.throughput > 0) {
-      return this.tech.throughput;
+      return Math.round(this.tech.throughput);
     }
     return null;
   }
@@ -79,11 +79,10 @@ export default class ContribHlsTech {
       const media = this.tech.playlists.media();
       if (media && media.attributes) {
         // Use AVERAGE-BANDWIDTH if available, fallback to BANDWIDTH
-        return (
-          media.attributes['AVERAGE-BANDWIDTH'] ||
+        const bitrate = media.attributes['AVERAGE-BANDWIDTH'] ||
           media.attributes.BANDWIDTH ||
-          null
-        );
+          null;
+        return bitrate !== null ? Math.round(bitrate) : null;
       }
     } catch (err) {}
     return null;
