@@ -4,12 +4,26 @@
  */
 
 import {
+  DASH_MANIFEST_EXTENSION,
+  DASH_SCTE35_EVENT_STREAM_SELECTOR,
+  HLS_MANIFEST_EXTENSION,
+  HLS_SEGMENT_DURATION_TAG,
+  HLS_TAG_PREFIX,
   REGEX_CUE_OUT,
+  REGEX_DASH_MINIMUM_UPDATE_PERIOD,
   REGEX_DISCONTINUITY,
+  REGEX_HLS_TARGET_DURATION,
+  REGEX_ISO_8601_DURATION,
   REGEX_MAP,
+  REGEX_MANIFEST_FILE_SUFFIX,
+  REGEX_SESSION_ID,
+  REGEX_TRACKING_PATH_SEGMENT,
+  MT_HLS_CUE_IN_TAG,
+  MT_HLS_CUE_OUT_TAG,
   MT_SEGMENT_PATTERN,
   MIN_AD_DURATION,
   AD_TIMING_TOLERANCE,
+  SCTE35_SCHEME_MARKER,
   STREAM_TYPE,
   MANIFEST_TYPE,
   AD_POSITION,
@@ -29,9 +43,9 @@ export function getTimestamp() {
  * Detects manifest format from URL (.m3u8 = HLS, .mpd = DASH)
  */
 export function detectManifestType(url) {
-  if (url.includes('.m3u8')) {
+  if (url.includes(HLS_MANIFEST_EXTENSION)) {
     return MANIFEST_TYPE.HLS;
-  } else if (url.includes('.mpd')) {
+  } else if (url.includes(DASH_MANIFEST_EXTENSION)) {
     return MANIFEST_TYPE.DASH;
   }
   return MANIFEST_TYPE.HLS; // Default fallback
@@ -49,7 +63,7 @@ export function detectStreamType(duration) {
  * Format: /v1/tracking/{customerId}/{configName}/{sessionId}
  */
 export function extractTrackingUrl(manifestUrl) {
-  const match = manifestUrl.match(/sessionId=([^&]+)/);
+  const match = manifestUrl.match(REGEX_SESSION_ID);
 
   if (!match) {
     return null;
@@ -61,8 +75,8 @@ export function extractTrackingUrl(manifestUrl) {
   // /v1/master/{id}/{name}/master.m3u8?aws.sessionId=xxx → /v1/tracking/{id}/{name}/{sessionId}
   // /v1/dash/{id}/{name}/index.mpd?aws.sessionId=xxx    → /v1/tracking/{id}/{name}/{sessionId}
   const trackingUrl = manifestUrl
-    .replace(/\/v1\/(master|session|dash)\//, '/v1/tracking/')
-    .replace(/\/[^/]*\.(m3u8|mpd).*$/, `/${sessionId}`);
+    .replace(REGEX_TRACKING_PATH_SEGMENT, '/v1/tracking/')
+    .replace(REGEX_MANIFEST_FILE_SUFFIX, `/${sessionId}`);
 
   return trackingUrl;
 }
@@ -261,7 +275,7 @@ export function parseHLSManifestForAds(manifestText) {
     }
 
     // Detect CUE-OUT (ad break start)
-    if (line.startsWith('#EXT-X-CUE-OUT')) {
+    if (line.startsWith(MT_HLS_CUE_OUT_TAG)) {
       const durationMatch = line.match(REGEX_CUE_OUT);
       const duration = durationMatch ? parseFloat(durationMatch[1]) : null;
 
@@ -281,7 +295,7 @@ export function parseHLSManifestForAds(manifestText) {
     }
 
     // Detect CUE-IN (ad break end)
-    if (line.startsWith('#EXT-X-CUE-IN')) {
+    if (line.startsWith(MT_HLS_CUE_IN_TAG)) {
       if (currentAdBreak) {
         // Close final pod
         if (currentPodStartTime !== null) {
@@ -315,7 +329,7 @@ export function parseHLSManifestForAds(manifestText) {
     }
 
     // Track time via EXTINF
-    if (line.startsWith('#EXTINF:')) {
+    if (line.startsWith(HLS_SEGMENT_DURATION_TAG)) {
       const duration = parseFloat(line.split(':')[1]);
       if (!isNaN(duration)) {
         currentTime += duration;
@@ -528,8 +542,16 @@ export function enrichScheduleWithTracking(adSchedule, trackingAvails) {
  * Extracts manifest target duration from HLS manifest text
  */
 export function extractTargetDuration(manifestText) {
-  const match = manifestText.match(/#EXT-X-TARGETDURATION:(\d+)/);
+  const match = manifestText.match(REGEX_HLS_TARGET_DURATION);
   return match ? parseInt(match[1], 10) : null;
+}
+
+/**
+ * Extracts DASH minimumUpdatePeriod from MPD manifest text
+ */
+export function extractMinimumUpdatePeriod(manifestText) {
+  const match = manifestText.match(REGEX_DASH_MINIMUM_UPDATE_PERIOD);
+  return match ? parseIsoDuration(match[1]) : null;
 }
 
 async function fetchTextOrThrow(url) {
@@ -557,7 +579,7 @@ export async function getHLSMasterManifest(manifestUrl) {
   let mediaPlaylistUrl = null;
 
   for (const line of lines) {
-    if (!line.startsWith('#') && line.includes('.m3u8')) {
+    if (!line.startsWith(HLS_TAG_PREFIX) && line.includes(HLS_MANIFEST_EXTENSION)) {
       mediaPlaylistUrl = new URL(line.trim(), manifestUrl).href;
       break;
     }
@@ -586,7 +608,7 @@ export async function getDASHManifest(manifestUrl) {
  */
 export function parseIsoDuration(durationStr) {
   if (!durationStr) return 0;
-  const match = durationStr.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?/);
+  const match = durationStr.match(REGEX_ISO_8601_DURATION);
   if (!match) return 0;
   const hours = parseFloat(match[1] || 0);
   const minutes = parseFloat(match[2] || 0);
@@ -659,7 +681,7 @@ export function parseDASHManifestForAds(xmlText) {
     // ── SINGLE_PERIOD ─────────────────────────────────────────────────────────
     // Ads are signalled via SCTE-35 EventStream elements within the single period.
     const eventStreams = xml.querySelectorAll(
-      'EventStream[schemeIdUri*="scte35"], EventStream[schemeIdUri*="SCTE35"]'
+      DASH_SCTE35_EVENT_STREAM_SELECTOR,
     );
 
     console.log(`[MT] Found ${eventStreams.length} SCTE-35 EventStream(s) in single-period manifest`);
@@ -670,7 +692,9 @@ export function parseDASHManifestForAds(xmlText) {
       stream.querySelectorAll('Event').forEach((event) => {
         const presentationTime = parseFloat(event.getAttribute('presentationTime') || 0);
         const duration = parseFloat(event.getAttribute('duration') || 0);
-        const eventId = event.getAttribute('id') || `scte35-${presentationTime}`;
+        const eventId =
+          event.getAttribute('id') ||
+          `${SCTE35_SCHEME_MARKER}-${presentationTime}`;
 
         const startTime = timescale !== 1 ? presentationTime / timescale : presentationTime;
         const durationSeconds = timescale !== 1 ? duration / timescale : duration;
@@ -754,7 +778,10 @@ export function extractMediaPlaylistUrl(masterText, baseUrl) {
   const lines = masterText.split('\n');
 
   for (const line of lines) {
-    if (!line.startsWith('#') && line.includes('.m3u8')) {
+    if (
+      !line.startsWith(HLS_TAG_PREFIX) &&
+      line.includes(HLS_MANIFEST_EXTENSION)
+    ) {
       return new URL(line.trim(), baseUrl).href;
     }
   }
