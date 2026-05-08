@@ -54,7 +54,11 @@ src/
     ├── ima.js
     ├── brightcove-ima.js
     ├── freewheel.js
-    └── dai.js
+    ├── dai.js
+    ├── media-tailor.js
+    └── utils/
+        ├── mt.js
+        └── mt-constants.js
 ```
 
 ## Testing
@@ -64,6 +68,7 @@ Test your changes using the sample HTML files:
 - `samples/hls.html` - Basic HLS streaming example
 - `samples/ima.html` - IMA ads integration example
 - `samples/dai/index.html` - SSAI (Server-Side Ad Insertion) example
+- `samples/media-tailor-lab.html` - MediaTailor SSAI lab for HLS/DASH and VOD/LIVE scenarios
 
 To run samples locally:
 
