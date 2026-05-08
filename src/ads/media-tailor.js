@@ -12,23 +12,23 @@ import {
 } from './utils/mt-constants.js';
 import {
   getTimestamp,
-  detectManifestType,
-  detectStreamType,
-  extractTrackingUrl,
+  detectManifestFormatFromUrl,
+  detectPlaybackStreamType,
+  buildTrackingEndpointUrl,
   determineAdPosition,
   getQuartilesToFire,
   findActiveAdBreak,
   findActivePod,
   mergeAdSchedules,
-  parseHLSManifestForAds,
-  parseDASHManifestForAds,
-  detectAdsFromVHSPlaylist,
-  enrichScheduleWithTracking,
-  extractTargetDuration,
-  extractMinimumUpdatePeriod,
-  getHLSMasterManifest,
-  getHLSMediaPlaylist,
-  getDASHManifest,
+  parseHlsManifestForAdBreaks,
+  parseDashManifestForAdBreaks,
+  detectAdBreaksFromVhsPlaylist,
+  enrichAdScheduleWithTrackingMetadata,
+  extractHlsTargetDurationSeconds,
+  extractDashMinimumUpdatePeriodSeconds,
+  fetchHlsMasterManifest,
+  fetchHlsMediaPlaylist,
+  fetchDashManifest,
   getTrackingMetadata,
 } from './utils/mt.js';
 
@@ -89,8 +89,8 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
     // Initialize state
     this.streamType = null; // 'vod' or 'live'
-    this.manifestType = null; // 'hls' or 'dash'
-    this.mediaTailorEndpoint = player.currentSrc();
+    this.manifestFormat = null; // 'hls' or 'dash'
+    this.playbackManifestUrl = player.currentSrc();
 
     // Ad tracking state
     this.adSchedule = [];
@@ -106,7 +106,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.isFetchingManifest = false;
 
     // Tracking API state
-    this.trackingUrl = null;
+    this.trackingEndpointUrl = null;
     this.hasAttemptedTrackingFetch = false;
     this.trackingFetchRetries = 0;
     this.maxTrackingRetries = 1;
@@ -114,24 +114,24 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     // Live polling timers
     this.manifestPollTimer = null;
     this.trackingPollTimer = null;
-    this.livePollingIntervalSeconds = null;
+    this.liveRefreshIntervalSeconds = null;
 
     // Manifest parsing cache
     this.mediaPlaylistUrl = null;
     this.lastMediaPlaylistText = null;
 
     console.log(`[MT - ${getTimestamp()}] MediaTailorAdsTracker initialized`, {
-      endpoint: this.mediaTailorEndpoint,
+      endpoint: this.playbackManifestUrl,
       trackingAPITimeout: TRACKING_API_TIMEOUT_MS,
     });
 
-    this.manifestType = detectManifestType(this.mediaTailorEndpoint);
+    this.manifestFormat = detectManifestFormatFromUrl(this.playbackManifestUrl);
     console.log(
-      `[MT - ${getTimestamp()}] Manifest type: ${this.manifestType.toUpperCase()}`,
+      `[MT - ${getTimestamp()}] Manifest type: ${this.manifestFormat.toUpperCase()}`,
     );
 
     this.player.one('loadedmetadata', () => {
-      this.streamType = detectStreamType(this.player.duration());
+      this.streamType = detectPlaybackStreamType(this.player.duration());
       console.log(
         `[MT - ${getTimestamp()}] Stream type: ${this.streamType.toUpperCase()}`,
       );
@@ -144,15 +144,15 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    */
   initializeTracking() {
     console.log(
-      `[MT - ${getTimestamp()}] Initializing ${this.manifestType.toUpperCase()} ${this.streamType.toUpperCase()} tracking`,
+      `[MT - ${getTimestamp()}] Initializing ${this.manifestFormat.toUpperCase()} ${this.streamType.toUpperCase()} tracking`,
     );
 
     // Extract tracking URL from sessionized URL
-    this.trackingUrl = extractTrackingUrl(this.mediaTailorEndpoint);
-    if (this.trackingUrl) {
+    this.trackingEndpointUrl = buildTrackingEndpointUrl(this.playbackManifestUrl);
+    if (this.trackingEndpointUrl) {
       console.log(
         `[MT - ${getTimestamp()}] Tracking URL extracted:`,
-        this.trackingUrl,
+        this.trackingEndpointUrl,
       );
     } else {
       console.warn(
@@ -239,7 +239,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     console.log(`[MT - ${getTimestamp()}] Live mode: Continuous polling`);
     this.hookPlayerManifest();
 
-    const pollingInterval = this.getLivePollingIntervalMs();
+    const pollingInterval = this.getLiveRefreshIntervalMs();
 
     // Start polling timers
     this.manifestPollTimer = setInterval(() => {
@@ -258,21 +258,21 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   /**
    * Returns the live polling interval in milliseconds
    */
-  getLivePollingIntervalMs() {
-    return this.livePollingIntervalSeconds
-      ? this.livePollingIntervalSeconds * 1000
+  getLiveRefreshIntervalMs() {
+    return this.liveRefreshIntervalSeconds
+      ? this.liveRefreshIntervalSeconds * 1000
       : DEFAULT_LIVE_POLL_INTERVAL_MS;
   }
 
   /**
    * Updates live polling intervals after manifest metadata is detected
    */
-  updateLivePollingIntervals() {
-    if (!this.livePollingIntervalSeconds) return;
+  restartLivePollingTimers() {
+    if (!this.liveRefreshIntervalSeconds) return;
 
-    const newInterval = this.getLivePollingIntervalMs();
+    const newInterval = this.getLiveRefreshIntervalMs();
     console.log(
-      `[MT - ${getTimestamp()}] Updating live polling interval: ${this.livePollingIntervalSeconds}s`,
+      `[MT - ${getTimestamp()}] Updating live polling interval: ${this.liveRefreshIntervalSeconds}s`,
     );
 
     // Restart timers with new interval
@@ -301,7 +301,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     }
 
     // Try hooks in order of preference
-    if (this.manifestType === MANIFEST_TYPE.HLS) {
+    if (this.manifestFormat === MANIFEST_TYPE.HLS) {
       if (
         this.hookHLSViaVHS(tech) ||
         this.hookHLSViaNative(tech) ||
@@ -309,7 +309,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       ) {
         return; // Successfully hooked
       }
-    } else if (this.manifestType === MANIFEST_TYPE.DASH) {
+    } else if (this.manifestFormat === MANIFEST_TYPE.DASH) {
       if (this.hookDASHViaShaka(tech) || this.hookDASHViaDashJs(tech)) {
         return; // Successfully hooked
       }
@@ -338,14 +338,14 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       currentPlaylist.segments.length > 0
     ) {
       console.log(`[MT - ${getTimestamp()}] Parsing existing playlist`);
-      this.parseVHSPlaylist(currentPlaylist);
+      this.parseVhsPlaylistForAdBreaks(currentPlaylist);
     }
 
     // Hook future playlist loads
     tech.vhs.on('loadedplaylist', () => {
       const playlist = tech.vhs.playlists.media();
       if (playlist) {
-        this.parseVHSPlaylist(playlist);
+        this.parseVhsPlaylistForAdBreaks(playlist);
       }
     });
 
@@ -386,14 +386,14 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       currentPlaylist.segments &&
       currentPlaylist.segments.length > 0
     ) {
-      this.parseVHSPlaylist(currentPlaylist);
+      this.parseVhsPlaylistForAdBreaks(currentPlaylist);
     }
 
     // Hook future playlist loads
     tech.hls.on('loadedplaylist', () => {
       const playlist = tech.hls.playlists.media();
       if (playlist) {
-        this.parseVHSPlaylist(playlist);
+        this.parseVhsPlaylistForAdBreaks(playlist);
       }
     });
 
@@ -437,12 +437,12 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     );
 
     try {
-      const manifestUrl = this.mediaTailorEndpoint;
+      const manifestUrl = this.playbackManifestUrl;
 
-      if (this.manifestType === MANIFEST_TYPE.HLS) {
-        await this.getAndParseHLSManifest(manifestUrl);
-      } else if (this.manifestType === MANIFEST_TYPE.DASH) {
-        await this.getAndParseDASHManifest(manifestUrl);
+      if (this.manifestFormat === MANIFEST_TYPE.HLS) {
+        await this.fetchAndParseHlsManifest(manifestUrl);
+      } else if (this.manifestFormat === MANIFEST_TYPE.DASH) {
+        await this.fetchAndParseDashManifest(manifestUrl);
       }
     } catch (error) {
       console.log(`[MT - ${getTimestamp()}] Fallback fetch error:`, error);
@@ -452,12 +452,12 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   /**
    * Fetches and parses HLS master + media manifest
    */
-  async getAndParseHLSManifest(manifestUrl) {
+  async fetchAndParseHlsManifest(manifestUrl) {
     try {
       console.log(`[MT - ${getTimestamp()}] Fetching HLS master manifest`);
 
       // Fetch master manifest
-      const { mediaPlaylistUrl } = await getHLSMasterManifest(manifestUrl);
+      const { mediaPlaylistUrl } = await fetchHlsMasterManifest(manifestUrl);
 
       if (!mediaPlaylistUrl) {
         console.log(`[MT - ${getTimestamp()}] No media playlist found`);
@@ -467,16 +467,16 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       console.log(`[MT - ${getTimestamp()}] Fetching media playlist`);
 
       // Fetch media playlist
-      const mediaText = await getHLSMediaPlaylist(mediaPlaylistUrl);
+      const mediaText = await fetchHlsMediaPlaylist(mediaPlaylistUrl);
 
-      const targetDuration = extractTargetDuration(mediaText);
-      this.updateDerivedLivePollingInterval(
-        targetDuration,
+      const hlsTargetDurationSeconds = extractHlsTargetDurationSeconds(mediaText);
+      this.updateLiveRefreshIntervalFromManifest(
+        hlsTargetDurationSeconds,
         'hls target duration',
       );
 
       // Parse for ads
-      const ads = parseHLSManifestForAds(mediaText);
+      const ads = parseHlsManifestForAdBreaks(mediaText);
       if (ads.length > 0) {
         console.log(
           `[MT - ${getTimestamp()}] Detected ${ads.length} ad break(s)`,
@@ -491,21 +491,22 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   /**
    * Fetches and parses DASH MPD manifest
    */
-  async getAndParseDASHManifest(manifestUrl) {
+  async fetchAndParseDashManifest(manifestUrl) {
     try {
       console.log(`[MT - ${getTimestamp()}] Fetching DASH manifest`);
 
       // Fetch DASH manifest
-      const xmlText = await getDASHManifest(manifestUrl);
+      const xmlText = await fetchDashManifest(manifestUrl);
 
-      const minimumUpdatePeriod = extractMinimumUpdatePeriod(xmlText);
-      this.updateDerivedLivePollingInterval(
-        minimumUpdatePeriod,
+      const dashMinimumUpdatePeriodSeconds =
+        extractDashMinimumUpdatePeriodSeconds(xmlText);
+      this.updateLiveRefreshIntervalFromManifest(
+        dashMinimumUpdatePeriodSeconds,
         'dash minimumUpdatePeriod',
       );
 
       // Parse for ads
-      const ads = parseDASHManifestForAds(xmlText);
+      const ads = parseDashManifestForAdBreaks(xmlText);
 
       console.log(
         `[MT - ${getTimestamp()}] DASH: ${ads.length} ad break(s) found`,
@@ -515,7 +516,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         this.mergeNewAds(ads); // also triggers tracking fetch
       } else if (
         this.streamType === STREAM_TYPE.VOD &&
-        this.trackingUrl &&
+        this.trackingEndpointUrl &&
         !this.hasAttemptedTrackingFetch
       ) {
         // No SCTE-35 markers in manifest - fall back to tracking API directly
@@ -674,7 +675,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   /**
    * Parses VHS playlist object for ads
    */
-  parseVHSPlaylist(playlist) {
+  parseVhsPlaylistForAdBreaks(playlist) {
     console.log(
       `[MT - ${getTimestamp()}] Parsing VHS playlist (${
         playlist.segments?.length || 0
@@ -686,13 +687,13 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       return;
     }
 
-    this.updateDerivedLivePollingInterval(
+    this.updateLiveRefreshIntervalFromManifest(
       playlist.targetDuration,
       'vhs target duration',
     );
 
     // VHS strips CUE tags - detect via discontinuityStarts + MediaTailor segments
-    const ads = detectAdsFromVHSPlaylist(playlist);
+    const ads = detectAdBreaksFromVhsPlaylist(playlist);
 
     if (ads.length > 0) {
       console.log(
@@ -728,10 +729,10 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       if (tech && tech.vhs) {
         const playlist = tech.vhs.playlists.media();
         if (playlist) {
-          this.parseVHSPlaylist(playlist);
+          this.parseVhsPlaylistForAdBreaks(playlist);
         }
-      } else if (this.manifestType === MANIFEST_TYPE.DASH) {
-        await this.getAndParseDASHManifest(this.mediaTailorEndpoint);
+      } else if (this.manifestFormat === MANIFEST_TYPE.DASH) {
+        await this.fetchAndParseDashManifest(this.playbackManifestUrl);
       }
     } catch (error) {
       console.log(`[MT - ${getTimestamp()}] Manifest poll error:`, error);
@@ -753,7 +754,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     // VOD: Fetch tracking metadata after first manifest parse (AWS best practice)
     if (
       this.streamType === STREAM_TYPE.VOD &&
-      this.trackingUrl &&
+      this.trackingEndpointUrl &&
       !this.hasAttemptedTrackingFetch
     ) {
       this.hasAttemptedTrackingFetch = true;
@@ -767,7 +768,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   /**
    * Updates live polling cadence from manifest-derived metadata
    */
-  updateDerivedLivePollingInterval(intervalSeconds, source) {
+  updateLiveRefreshIntervalFromManifest(intervalSeconds, source) {
     if (
       this.streamType !== STREAM_TYPE.LIVE ||
       !intervalSeconds ||
@@ -776,17 +777,17 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       return;
     }
 
-    if (this.livePollingIntervalSeconds === intervalSeconds) {
+    if (this.liveRefreshIntervalSeconds === intervalSeconds) {
       return;
     }
 
-    this.livePollingIntervalSeconds = intervalSeconds;
+    this.liveRefreshIntervalSeconds = intervalSeconds;
     console.log(
       `[MT - ${getTimestamp()}] Derived live polling interval from ${source}: ${intervalSeconds}s`,
     );
 
     if (this.manifestPollTimer || this.trackingPollTimer) {
-      this.updateLivePollingIntervals();
+      this.restartLivePollingTimers();
     }
   }
 
@@ -794,7 +795,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    * Fetches and processes tracking metadata from AWS MediaTailor Tracking API
    */
   async getAndProcessTrackingMetadata() {
-    if (this.isDisposed || !this.trackingUrl) return;
+    if (this.isDisposed || !this.trackingEndpointUrl) return;
 
     if (this.isFetchingTracking) {
       console.log(
@@ -811,7 +812,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       this.trackingAbortController = new AbortController();
 
       const data = await getTrackingMetadata(
-        this.trackingUrl,
+        this.trackingEndpointUrl,
         TRACKING_API_TIMEOUT_MS,
         this.trackingAbortController.signal,
       );
@@ -866,7 +867,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    * Enriches ad schedule with tracking API metadata
    */
   enrichWithTrackingMetadata(avails) {
-    const newAds = enrichScheduleWithTracking(this.adSchedule, avails);
+    const newAds = enrichAdScheduleWithTrackingMetadata(this.adSchedule, avails);
 
     // Add any new ads from tracking
     if (newAds.length > 0) {
@@ -1188,7 +1189,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    */
   getSrc() {
     // MediaTailor doesn't provide individual creative URLs
-    return this.trackingUrl || this.mediaTailorEndpoint || null;
+    return this.trackingEndpointUrl || this.playbackManifestUrl || null;
   }
 
   /**

@@ -42,7 +42,7 @@ export function getTimestamp() {
 /**
  * Detects manifest format from URL (.m3u8 = HLS, .mpd = DASH)
  */
-export function detectManifestType(url) {
+export function detectManifestFormatFromUrl(url) {
   if (url.includes(HLS_MANIFEST_EXTENSION)) {
     return MANIFEST_TYPE.HLS;
   } else if (url.includes(DASH_MANIFEST_EXTENSION)) {
@@ -54,15 +54,15 @@ export function detectManifestType(url) {
 /**
  * Detects stream type from player duration (Infinity = Live, else = VOD)
  */
-export function detectStreamType(duration) {
+export function detectPlaybackStreamType(duration) {
   return duration === Infinity ? STREAM_TYPE.LIVE : STREAM_TYPE.VOD;
 }
 
 /**
- * Extracts tracking URL from sessionized manifest URL
+ * Builds a tracking endpoint URL from a sessionized manifest URL
  * Format: /v1/tracking/{customerId}/{configName}/{sessionId}
  */
-export function extractTrackingUrl(manifestUrl) {
+export function buildTrackingEndpointUrl(manifestUrl) {
   const match = manifestUrl.match(REGEX_SESSION_ID);
 
   if (!match) {
@@ -74,11 +74,11 @@ export function extractTrackingUrl(manifestUrl) {
   // Convert manifest URL to tracking URL:
   // /v1/master/{id}/{name}/master.m3u8?aws.sessionId=xxx → /v1/tracking/{id}/{name}/{sessionId}
   // /v1/dash/{id}/{name}/index.mpd?aws.sessionId=xxx    → /v1/tracking/{id}/{name}/{sessionId}
-  const trackingUrl = manifestUrl
+  const trackingEndpointUrl = manifestUrl
     .replace(REGEX_TRACKING_PATH_SEGMENT, '/v1/tracking/')
     .replace(REGEX_MANIFEST_FILE_SUFFIX, `/${sessionId}`);
 
-  return trackingUrl;
+  return trackingEndpointUrl;
 }
 
 /**
@@ -219,7 +219,7 @@ export function mergeAdSchedules(existingSchedule, newAds) {
 /**
  * Parses HLS manifest text for CUE-OUT/CUE-IN markers
  */
-export function parseHLSManifestForAds(manifestText) {
+export function parseHlsManifestForAdBreaks(manifestText) {
   const lines = manifestText.split('\n');
   const adBreaks = [];
 
@@ -350,7 +350,7 @@ export function parseHLSManifestForAds(manifestText) {
 /**
  * Detects ads from VHS playlist using discontinuityStarts and MediaTailor segments
  */
-export function detectAdsFromVHSPlaylist(playlist) {
+export function detectAdBreaksFromVhsPlaylist(playlist) {
   const segments = playlist.segments;
   const discontinuityStarts = playlist.discontinuityStarts || [];
   const adBreaks = [];
@@ -453,7 +453,7 @@ export function detectAdsFromVHSPlaylist(playlist) {
 /**
  * Enriches ad schedule with tracking API metadata
  */
-export function enrichScheduleWithTracking(adSchedule, trackingAvails) {
+export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails) {
   const scheduleMap = new Map();
 
   // Build map of existing ads
@@ -539,17 +539,19 @@ export function enrichScheduleWithTracking(adSchedule, trackingAvails) {
 }
 
 /**
- * Extracts manifest target duration from HLS manifest text
+ * Extracts the HLS live target duration from manifest text.
+ * In HLS, EXT-X-TARGETDURATION is the closest manifest-level hint for refresh cadence.
  */
-export function extractTargetDuration(manifestText) {
+export function extractHlsTargetDurationSeconds(manifestText) {
   const match = manifestText.match(REGEX_HLS_TARGET_DURATION);
   return match ? parseInt(match[1], 10) : null;
 }
 
 /**
- * Extracts DASH minimumUpdatePeriod from MPD manifest text
+ * Extracts the DASH live minimumUpdatePeriod from MPD manifest text.
+ * In DASH, minimumUpdatePeriod is the MPD's refresh hint for clients polling a live manifest.
  */
-export function extractMinimumUpdatePeriod(manifestText) {
+export function extractDashMinimumUpdatePeriodSeconds(manifestText) {
   const match = manifestText.match(REGEX_DASH_MINIMUM_UPDATE_PERIOD);
   return match ? parseIsoDuration(match[1]) : null;
 }
@@ -571,7 +573,7 @@ async function fetchTextOrThrow(url) {
 /**
  * Fetches HLS master manifest and returns master text + first media playlist URL
  */
-export async function getHLSMasterManifest(manifestUrl) {
+export async function fetchHlsMasterManifest(manifestUrl) {
   const masterText = await fetchTextOrThrow(manifestUrl);
 
   // Find first media playlist URL
@@ -591,14 +593,14 @@ export async function getHLSMasterManifest(manifestUrl) {
 /**
  * Fetches HLS media playlist and returns text
  */
-export async function getHLSMediaPlaylist(playlistUrl) {
+export async function fetchHlsMediaPlaylist(playlistUrl) {
   return await fetchTextOrThrow(playlistUrl);
 }
 
 /**
  * Fetches DASH MPD manifest and returns XML text
  */
-export async function getDASHManifest(manifestUrl) {
+export async function fetchDashManifest(manifestUrl) {
   return await fetchTextOrThrow(manifestUrl);
 }
 
@@ -625,7 +627,7 @@ export function parseIsoDuration(durationStr) {
  * SINGLE_PERIOD: the entire stream is one period; ads are signalled via
  * SCTE-35 <EventStream> elements inside that period.
  */
-export function parseDASHManifestForAds(xmlText) {
+export function parseDashManifestForAdBreaks(xmlText) {
   const parser = new DOMParser();
   const xml = parser.parseFromString(xmlText, 'text/xml');
   const ads = [];
@@ -731,11 +733,11 @@ export function parseDASHManifestForAds(xmlText) {
 
 /**
  * Fetches tracking metadata from AWS MediaTailor Tracking API
- * @param {string} trackingUrl - The tracking API URL
+ * @param {string} trackingEndpointUrl - The tracking API URL
  * @param {number} timeout - Timeout in milliseconds
  * @param {AbortSignal} externalSignal - Optional external abort signal for cancellation
  */
-export async function getTrackingMetadata(trackingUrl, timeout = 8000, externalSignal = null) {
+export async function getTrackingMetadata(trackingEndpointUrl, timeout = 8000, externalSignal = null) {
   // Create AbortController for timeout support
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
@@ -747,7 +749,7 @@ export async function getTrackingMetadata(trackingUrl, timeout = 8000, externalS
   }
 
   try {
-    const response = await fetch(`${trackingUrl}?t=${Date.now()}`, {
+    const response = await fetch(`${trackingEndpointUrl}?t=${Date.now()}`, {
       signal: controller.signal,
       credentials: 'include',
     });
