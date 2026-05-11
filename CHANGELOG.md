@@ -1,3 +1,31 @@
+## [4.2.0](https://github.com/newrelic/video-videojs-js/compare/v4.1.1...v4.2.0) (2026-05-11)
+
+### Features
+
+- **AWS MediaTailor Support:** Added comprehensive support for AWS MediaTailor SSAI with DASH
+  - Implemented MediaTailor tracker with manifest polling and ad tracking
+  - Added MediaTailor lab sample for testing and demonstration
+  - Enhanced DASH support for MediaTailor integration
+  - Added unit test cases for MediaTailor functionality
+  - Improved MediaTailor tracker reliability and event handling
+
+### Bug Fixes
+
+- **Bitrate Data Types:** Updated bitrate data types for improved accuracy and consistency
+- **Manifest Fetch Error Handling:** Added proper error handling for manifest fetch failures
+- **MediaTailor Configuration:** Moved MediaTailor config variables to global scope for better accessibility
+
+### Documentation
+
+- **SSAI Documentation:** Updated SSAI documentation to include MediaTailor integration details
+- **MediaTailor Naming:** Clarified MediaTailor helper and state naming conventions
+
+### Build & Infrastructure
+
+- **Release Workflow:** Standardized release workflow with smart detection
+- **Dependencies:** Updated semantic-release dependencies and package-lock.json
+- **Cleanup:** Removed unrelated test infrastructure files, scripts, and dependencies
+
 ## [4.1.1](https://github.com/newrelic/video-videojs-js/compare/v4.1.0...v4.1.1) (2026-04-17)
 
 ### Documentation
