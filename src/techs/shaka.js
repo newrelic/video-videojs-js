@@ -13,7 +13,8 @@ export default class ShakaTech {
 
   getRenditionBitrate(tech) {
     try {
-      return this.tech.getStats().streamBandwidth;
+      const bitrate = this.tech.getStats().streamBandwidth;
+      return bitrate ? Math.round(bitrate) : null;
     } catch (err) {}
     return null;
   }
@@ -23,9 +24,9 @@ export default class ShakaTech {
       // Return highest available bitrate from all variants
       const tracks = this.tech.getVariantTracks();
       if (tracks && tracks.length > 0) {
-        return Math.max(
+        return Math.round(Math.max(
           ...tracks.map((t) => t.videoBandwidth + (t.audioBandwidth || 0)),
-        );
+        ));
       }
     } catch (err) {}
     return null;
@@ -67,7 +68,7 @@ export default class ShakaTech {
       // Get the current variant's bitrate from manifest (streamBandwidth)
       var stats = this.tech.getStats();
       if (stats && stats.streamBandwidth && stats.streamBandwidth > 0) {
-        return stats.streamBandwidth;
+        return Math.round(stats.streamBandwidth);
       }
     } catch (err) {}
     return null;
@@ -78,7 +79,7 @@ export default class ShakaTech {
       // Use estimatedBandwidth for measured bitrate
       var stats = this.tech.getStats();
       if (stats && stats.estimatedBandwidth > 0) {
-        return stats.estimatedBandwidth;
+        return Math.round(stats.estimatedBandwidth);
       }
     } catch (err) {}
     return null;
@@ -89,7 +90,7 @@ export default class ShakaTech {
       // Shaka: use estimatedBandwidth for download bitrate (no separate property)
       var stats = this.tech.getStats();
       if (stats && stats.estimatedBandwidth > 0) {
-        return stats.estimatedBandwidth;
+        return Math.round(stats.estimatedBandwidth);
       }
     } catch (err) {}
     return null;

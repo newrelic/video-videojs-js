@@ -8,11 +8,12 @@ import ImaAdsTracker from './ads/ima';
 import BrightcoveImaAdsTracker from './ads/brightcove-ima';
 import FreewheelAdsTracker from './ads/freewheel';
 import DaiAdsTracker from './ads/dai';
+import MediaTailorAdsTracker from './ads/media-tailor';
 
 export default class VideojsTracker extends nrvideo.VideoTracker {
   constructor(player, options) {
     super(player, options);
-
+    this.options = options;
     this.isContentEnd = false;
     this.imaAdCuePoints = '';
     this.daiInitialized = false;
@@ -125,17 +126,17 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
       if (tech?.vhs?.playlists?.media()) {
         const activePlaylist = tech.vhs.playlists.media();
         // Use AVERAGE-BANDWIDTH if available, fallback to BANDWIDTH
-        return (
-          activePlaylist.attributes['AVERAGE-BANDWIDTH'] ||
+        const bitrate = activePlaylist.attributes['AVERAGE-BANDWIDTH'] ||
           activePlaylist.attributes.BANDWIDTH ||
-          null
-        );
+          null;
+        return bitrate !== null ? Math.round(bitrate) : null;
       }
 
       // 2. Fallback to tech wrappers (Shaka/Hls.js) if they have a getBitrate method
       const techWrapper = this.getTech();
       if (techWrapper?.getBitrate) {
-        return techWrapper.getBitrate();
+        const bitrate = techWrapper.getBitrate();
+        return bitrate !== null ? Math.round(bitrate) : null;
       }
     } catch (err) {
       /* ignore */
@@ -161,13 +162,14 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
         const maxBitrate = Math.max(
           ...allRenditions.map((p) => p.attributes.BANDWIDTH || 0),
         );
-        return maxBitrate > 0 ? maxBitrate : null;
+        return maxBitrate > 0 ? Math.round(maxBitrate) : null;
       }
 
       // Fallback to tech wrappers (Shaka/Hls.js)
       const techWrapper = this.getTech();
       if (techWrapper?.getManifestBitrate) {
-        return techWrapper.getManifestBitrate();
+        const bitrate = techWrapper.getManifestBitrate();
+        return bitrate !== null ? Math.round(bitrate) : null;
       }
     } catch (e) {
       /* ignore */
@@ -181,13 +183,14 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
       // VHS stats.bandwidth
       if (tech?.vhs?.stats?.bandwidth && tech.vhs.stats.bandwidth > 0) {
-        return tech.vhs.stats.bandwidth;
+        return Math.round(tech.vhs.stats.bandwidth);
       }
 
       // Fallback to tech wrappers (Shaka/Hls.js)
       const techWrapper = this.getTech();
       if (techWrapper?.getSegmentDownloadBitrate) {
-        return techWrapper.getSegmentDownloadBitrate();
+        const bitrate = techWrapper.getSegmentDownloadBitrate();
+        return bitrate !== null ? Math.round(bitrate) : null;
       }
     } catch (err) {
       /* ignore */
@@ -199,13 +202,14 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     const tech = this.player.tech({ IWillNotUseThisInPlugins: true });
 
     if (tech?.vhs?.throughput && tech.vhs.throughput > 0) {
-      return tech.vhs.throughput;
+      return Math.round(tech.vhs.throughput);
     }
 
     // Fallback to tech wrapper implementation
     const techWrapper = this.getTech();
     if (techWrapper?.getNetworkDownloadBitrate) {
-      return techWrapper.getNetworkDownloadBitrate();
+      const bitrate = techWrapper.getNetworkDownloadBitrate();
+      return bitrate !== null ? Math.round(bitrate) : null;
     }
 
     return null;
@@ -318,6 +322,21 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
 
   onDownload(e) {
     this.sendDownload({ state: e.type });
+
+    // Check if MediaTailor should be used after the source is loaded
+    // Only check on 'loadstart' to avoid multiple checks
+    if (
+      !this.adsTracker &&
+      e.type === 'loadstart' &&
+      MediaTailorAdsTracker.isUsing(this.player)
+    ) {
+      console.log(
+        'VideojsTracker: Creating MediaTailorAdsTracker after source load'
+      );
+      this.setAdsTracker(new MediaTailorAdsTracker(this.player, this.options));
+      // MediaTailor SSAI starts with content, not ads (unlike client-side ad frameworks)
+      this.adsTracker.setIsAd(false);
+    }
   }
 
   // DAI methods
@@ -369,15 +388,35 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     this.FreewheelAdsCompleted = true;
   }
 
+  /**
+   * Check if ads tracker is currently in ad mode
+   * @returns {boolean} True if ads are playing
+   */
+  isAdsTrackerActive() {
+    return this.adsTracker && this.adsTracker.isAd && this.adsTracker.isAd();
+  }
+
   onPlay() {
     this.sendRequest();
   }
 
   onPause() {
+    // Don't send CONTENT_PAUSE if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
+    // Don't send CONTENT_PAUSE if video has ended (CONTENT_END will be sent instead)
+    if (this.player.ended()) {
+      return;
+    }
     this.sendPause();
   }
 
   onPlaying() {
+    // Don't send CONTENT_RESUME if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendResume();
     this.sendBufferEnd();
   }
@@ -402,10 +441,18 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   onSeeking() {
+    // Don't send CONTENT_SEEK_START if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendSeekStart();
   }
 
   onSeeked() {
+    // Don't send CONTENT_SEEK_END if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendSeekEnd();
   }
 
@@ -420,6 +467,10 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
   }
 
   onWaiting(e) {
+    // Don't send CONTENT_BUFFER_START if ads are playing (ads tracker handles it)
+    if (this.isAdsTrackerActive()) {
+      return;
+    }
     this.sendBufferStart();
   }
 
@@ -439,4 +490,5 @@ export {
   ImaAdsTracker,
   BrightcoveImaAdsTracker,
   FreewheelAdsTracker,
+  MediaTailorAdsTracker,
 };

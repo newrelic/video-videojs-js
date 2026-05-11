@@ -1,0 +1,860 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MediaTailor Lab</title>
+    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #07131f;
+        --bg-accent: #0f2438;
+        --panel: rgba(9, 24, 39, 0.86);
+        --panel-strong: rgba(7, 18, 31, 0.96);
+        --border: rgba(168, 194, 215, 0.12);
+        --text: #edf5fc;
+        --muted: #8ca3ba;
+        --accent: #7de4c0;
+        --accent-warm: #ffd37f;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: Georgia, 'Times New Roman', serif;
+        color: var(--text);
+        background:
+          radial-gradient(
+            circle at top,
+            rgba(125, 228, 192, 0.12),
+            transparent 30%
+          ),
+          linear-gradient(180deg, var(--bg-accent), var(--bg));
+      }
+
+      .shell {
+        width: min(1280px, calc(100vw - 32px));
+        margin: 0 auto;
+        padding: 28px 0 40px;
+      }
+
+      .hero {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+        margin-bottom: 22px;
+      }
+
+      .hero h1 {
+        margin: 0 0 10px;
+        font-size: clamp(2rem, 3vw, 3.2rem);
+        line-height: 1;
+      }
+
+      .hero p,
+      .tiny,
+      .hint {
+        color: var(--muted);
+      }
+
+      .status-pill {
+        padding: 10px 14px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.06);
+        white-space: nowrap;
+      }
+
+      .workspace {
+        display: grid;
+        grid-template-columns: minmax(0, 1.25fr) minmax(340px, 0.9fr);
+        gap: 20px;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        background: var(--panel);
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+        backdrop-filter: blur(14px);
+      }
+
+      .stage,
+      .control-panel {
+        padding: 18px;
+      }
+
+      .control-panel {
+        background: linear-gradient(
+          180deg,
+          rgba(10, 26, 41, 0.96),
+          rgba(6, 16, 28, 0.98)
+        );
+      }
+
+      .player-wrap {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        width: 100%;
+        border-radius: 18px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        background: rgba(0, 0, 0, 0.32);
+      }
+
+      .player-wrap .video-js,
+      .player-wrap .vjs-tech,
+      .player-wrap .vjs-poster,
+      .player-wrap .vjs-control-bar {
+        width: 100%;
+      }
+
+      .player-wrap .video-js,
+      .player-wrap .vjs-tech,
+      .player-wrap .vjs-poster {
+        height: 100%;
+      }
+
+      .player-wrap .video-js {
+        position: absolute;
+        inset: 0;
+      }
+
+      .meta-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .meta-card {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 0.82rem;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .value {
+        font-size: 1rem;
+        line-height: 1.4;
+        word-break: break-word;
+      }
+
+      .log-panel {
+        margin-top: 14px;
+        padding: 0;
+        background: transparent;
+        border: 0;
+        box-shadow: none;
+      }
+
+      .log-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 0 14px;
+      }
+
+      .log-header h2,
+      .group h2,
+      .group h3 {
+        margin: 0 0 8px;
+      }
+
+      .log-output {
+        min-height: 280px;
+        max-height: 520px;
+        overflow-y: auto;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(3, 9, 16, 0.94);
+        padding: 14px;
+        font-family: 'SFMono-Regular', Consolas, monospace;
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .log-line {
+        padding: 5px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      }
+
+      .log-line:last-child {
+        border-bottom: 0;
+      }
+
+      .log-time {
+        color: var(--accent);
+        margin-right: 8px;
+      }
+
+      .log-tag {
+        color: var(--accent-warm);
+        margin-right: 8px;
+      }
+
+      .control-top {
+        margin-bottom: 12px;
+      }
+
+      .group {
+        margin-bottom: 14px;
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.035);
+      }
+
+      .preset-grid,
+      .button-row,
+      .field-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .preset-grid,
+      .field-grid.two,
+      .button-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        border-radius: 12px;
+        padding: 11px 14px;
+        cursor: pointer;
+        color: #07111b;
+        background: linear-gradient(135deg, var(--accent), #9be7ef);
+        font-weight: 600;
+        box-shadow: 0 12px 28px rgba(125, 228, 192, 0.18);
+        transition:
+          transform 120ms ease,
+          box-shadow 120ms ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 16px 34px rgba(125, 228, 192, 0.22);
+      }
+
+      button.secondary {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: none;
+      }
+
+      button.preset.active {
+        outline: 2px solid var(--accent);
+        outline-offset: 1px;
+      }
+
+      input,
+      select,
+      textarea {
+        width: 100%;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 12px;
+        padding: 11px 12px;
+        color: var(--text);
+        background: rgba(4, 12, 21, 0.78);
+      }
+
+      textarea {
+        min-height: 120px;
+        resize: vertical;
+      }
+
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .checkbox-row input {
+        width: 18px;
+        height: 18px;
+      }
+
+      .note {
+        margin-top: 12px;
+        padding: 12px;
+        border-radius: 12px;
+        background: rgba(255, 211, 127, 0.08);
+        border: 1px solid rgba(255, 211, 127, 0.12);
+        color: #ffe7b3;
+      }
+
+      @media (max-width: 1080px) {
+        .workspace,
+        .meta-grid {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      @media (max-width: 720px) {
+        .shell {
+          width: min(100vw - 20px, 100%);
+          padding: 18px 0 28px;
+        }
+
+        .hero {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .preset-grid,
+        .field-grid.two,
+        .button-row {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <div class="hero">
+        <div>
+          <h1>MediaTailor Lab</h1>
+          <p>
+            Load a sessionized MediaTailor playback URL and switch between HLS
+            or DASH scenarios. New Relic credentials stay in code, while the
+            tracker uses guide-aligned MediaTailor defaults automatically.
+          </p>
+        </div>
+        <div id="statusPill" class="status-pill">Idle</div>
+      </div>
+
+      <div class="workspace">
+        <div class="panel stage">
+          <div class="player-wrap" id="playerMount"></div>
+
+          <div class="meta-grid">
+            <div class="meta-card">
+              <span class="label">Active Source</span>
+              <div id="activeSource" class="value">No stream loaded</div>
+            </div>
+            <div class="meta-card">
+              <span class="label">Playback Mode</span>
+              <div id="activeMode" class="value">Unset</div>
+            </div>
+            <div class="meta-card">
+              <span class="label">Manifest Type</span>
+              <div id="activeFormat" class="value">Unset</div>
+            </div>
+          </div>
+
+          <div class="log-panel">
+            <div class="log-header">
+              <div>
+                <h2>Event Log</h2>
+                <p class="tiny">
+                  Browser console entries tagged with `mt`, plus core Video.js
+                  lifecycle events.
+                </p>
+              </div>
+              <button id="clearLogButton" class="secondary" type="button">
+                Clear log
+              </button>
+            </div>
+            <div id="logOutput" class="log-output"></div>
+          </div>
+        </div>
+
+        <div class="panel control-panel">
+          <div class="control-top">
+            <h2>Controls</h2>
+            <p class="tiny">
+              The tracker auto-detects MediaTailor and determines VOD versus
+              live from playback. The mode selector here is only for repeatable
+              lab labeling.
+            </p>
+          </div>
+
+          <div class="group">
+            <h3>Scenario Presets</h3>
+            <div class="preset-grid">
+              <button
+                class="preset"
+                type="button"
+                data-format="hls"
+                data-mode="vod"
+              >
+                HLS VOD
+              </button>
+              <button
+                class="preset"
+                type="button"
+                data-format="hls"
+                data-mode="live"
+              >
+                HLS Live
+              </button>
+              <button
+                class="preset"
+                type="button"
+                data-format="dash"
+                data-mode="vod"
+              >
+                DASH VOD
+              </button>
+              <button
+                class="preset"
+                type="button"
+                data-format="dash"
+                data-mode="live"
+              >
+                DASH Live
+              </button>
+            </div>
+          </div>
+
+          <form id="controlForm">
+            <div class="group">
+              <h3>MediaTailor Stream</h3>
+              <div class="field-grid">
+                <div>
+                  <label class="label" for="sourceUrl">Playback URL</label>
+                  <textarea
+                    id="sourceUrl"
+                    name="sourceUrl"
+                    placeholder="Paste the sessionized MediaTailor playback URL here"
+                    spellcheck="false"
+                  ></textarea>
+                </div>
+                <div class="field-grid two">
+                  <div>
+                    <label class="label" for="format">Format</label>
+                    <select id="format" name="format">
+                      <option value="hls">HLS</option>
+                      <option value="dash">DASH</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="label" for="mode">Scenario</label>
+                    <select id="mode" name="mode">
+                      <option value="vod">VOD</option>
+                      <option value="live">Live</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label class="label" for="contentTitle">Content Title</label>
+                  <input
+                    id="contentTitle"
+                    name="contentTitle"
+                    type="text"
+                    placeholder="Optional contentTitle custom data"
+                  />
+                </div>
+              </div>
+              <div class="hint">
+                Use the actual MediaTailor playback endpoint here. The tracker
+                only activates when the source contains `.mediatailor.`.
+              </div>
+            </div>
+
+            <div class="group">
+              <h3>Playback Options</h3>
+              <div class="field-grid two">
+                <label class="checkbox-row" for="autoplay">
+                  <input id="autoplay" name="autoplay" type="checkbox" />
+                  <span>autoplay</span>
+                </label>
+              </div>
+              <div class="note">
+                Live tracking cadence follows the MediaTailor guide: target
+                duration for HLS, minimumUpdatePeriod for DASH, and one tracking
+                metadata fetch after the first playable manifest for VOD.
+              </div>
+            </div>
+
+            <div class="group">
+              <h3>Actions</h3>
+              <div class="button-row">
+                <button id="loadButton" type="submit">Load stream</button>
+                <button id="resetButton" class="secondary" type="button">
+                  Reset player
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/videojs-contrib-dash@4.1.0/dist/videojs-dash.min.js"></script>
+    <script src="../dist/umd/newrelic-video-videojs.min.js"></script>
+    <script>
+      const STORAGE_KEY = 'nr-videojs-media-tailor-lab';
+      const PLAYER_ID = 'media-tailor-player';
+      const PLAYER_EVENTS = [
+        'loadstart',
+        'loadedmetadata',
+        'loadeddata',
+        'play',
+        'playing',
+        'pause',
+        'waiting',
+        'seeking',
+        'seeked',
+        'timeupdate',
+        'ended',
+        'error',
+      ];
+
+      const NEW_RELIC_OPTIONS = {
+        info: {
+          beacon: 'YOUR_NEW_RELIC_BEACON',
+          licenseKey: 'YOUR_NEW_RELIC_LICENSE_KEY',
+          applicationID: 'YOUR_NEW_RELIC_APPLICATION_ID',
+        },
+        customData: {
+          labName: 'media-tailor-lab',
+          integration: 'videojs-mediatailor-sample',
+        },
+      };
+
+      const form = document.getElementById('controlForm');
+      const sourceUrlField = document.getElementById('sourceUrl');
+      const formatField = document.getElementById('format');
+      const modeField = document.getElementById('mode');
+      const contentTitleField = document.getElementById('contentTitle');
+      const autoplayField = document.getElementById('autoplay');
+      const statusPill = document.getElementById('statusPill');
+      const activeSource = document.getElementById('activeSource');
+      const activeMode = document.getElementById('activeMode');
+      const activeFormat = document.getElementById('activeFormat');
+      const logOutput = document.getElementById('logOutput');
+      const playerMount = document.getElementById('playerMount');
+      const resetButton = document.getElementById('resetButton');
+      const clearLogButton = document.getElementById('clearLogButton');
+      const presetButtons = Array.from(document.querySelectorAll('.preset'));
+
+      let player = null;
+      let tracker = null;
+      let consolePatched = false;
+
+      function appendLog(tag, message) {
+        const line = document.createElement('div');
+        line.className = 'log-line';
+        const time = new Date().toLocaleTimeString();
+        line.innerHTML =
+          '<span class="log-time">' +
+          time +
+          '</span>' +
+          '<span class="log-tag">[' +
+          tag +
+          ']</span>' +
+          '<span>' +
+          escapeHtml(message) +
+          '</span>';
+        logOutput.prepend(line);
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function setStatus(label) {
+        statusPill.textContent = label;
+      }
+
+      function updateActiveSummary(state) {
+        activeSource.textContent = state.sourceUrl || 'No stream loaded';
+        activeMode.textContent = state.mode
+          ? state.mode.toUpperCase()
+          : 'Unset';
+        activeFormat.textContent = state.format
+          ? state.format.toUpperCase()
+          : 'Unset';
+      }
+
+      function setPreset(format, mode) {
+        formatField.value = format;
+        modeField.value = mode;
+        presetButtons.forEach((button) => {
+          const isActive =
+            button.dataset.format === format && button.dataset.mode === mode;
+          button.classList.toggle('active', isActive);
+        });
+      }
+
+      function readState() {
+        return {
+          sourceUrl: sourceUrlField.value.trim(),
+          format: formatField.value,
+          mode: modeField.value,
+          contentTitle: contentTitleField.value.trim(),
+          autoplay: autoplayField.checked,
+        };
+      }
+
+      function writeState(state) {
+        sourceUrlField.value = state.sourceUrl || '';
+        formatField.value = state.format || 'hls';
+        modeField.value = state.mode || 'vod';
+        contentTitleField.value = state.contentTitle || '';
+        autoplayField.checked = Boolean(state.autoplay);
+        setPreset(formatField.value, modeField.value);
+        updateActiveSummary(state);
+      }
+
+      function persistState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(readState()));
+      }
+
+      function loadStoredState() {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? JSON.parse(raw) : null;
+        } catch (error) {
+          appendLog('lab', 'Failed to restore saved state: ' + error.message);
+          return null;
+        }
+      }
+
+      function patchConsole() {
+        if (consolePatched) {
+          return;
+        }
+
+        consolePatched = true;
+        ['log', 'warn', 'error'].forEach((method) => {
+          const original = console[method].bind(console);
+          console[method] = function () {
+            const args = Array.from(arguments);
+            const message = args
+              .map((part) => {
+                if (typeof part === 'string') {
+                  return part;
+                }
+                try {
+                  return JSON.stringify(part);
+                } catch (error) {
+                  return String(part);
+                }
+              })
+              .join(' ');
+
+            if (message.includes('[MT') || message.includes('VideojsTracker')) {
+              appendLog('mt', message);
+            }
+
+            original.apply(console, args);
+          };
+        });
+      }
+
+      function createPlayerElement() {
+        playerMount.innerHTML =
+          '<video id="' +
+          PLAYER_ID +
+          '" class="video-js vjs-default-skin" controls playsinline preload="auto"></video>';
+      }
+
+      function disposePlayer() {
+        if (player && !player.isDisposed()) {
+          player.dispose();
+        }
+
+        player = null;
+        tracker = null;
+        createPlayerElement();
+      }
+
+      function getSourceType(format) {
+        return format === 'dash'
+          ? 'application/dash+xml'
+          : 'application/x-mpegURL';
+      }
+
+      function buildTrackerOptions(state) {
+        const options = {
+          info: { ...NEW_RELIC_OPTIONS.info },
+          customData: {
+            ...NEW_RELIC_OPTIONS.customData,
+            streamScenario: state.mode,
+            streamFormat: state.format,
+          },
+        };
+
+        if (state.contentTitle) {
+          options.customData.contentTitle = state.contentTitle;
+        }
+
+        return options;
+      }
+
+      function attachPlayerLogging(instance) {
+        PLAYER_EVENTS.forEach((eventName) => {
+          if (eventName === 'timeupdate') {
+            return;
+          }
+
+          instance.on(eventName, () => {
+            if (eventName === 'error' && instance.error()) {
+              const error = instance.error();
+              appendLog(
+                'player',
+                eventName + ': ' + (error.message || 'Unknown player error'),
+              );
+              setStatus('Player error');
+              return;
+            }
+
+            appendLog('player', eventName);
+
+            if (eventName === 'playing') {
+              setStatus('Playing');
+            } else if (eventName === 'waiting') {
+              setStatus('Buffering');
+            } else if (eventName === 'ended') {
+              setStatus('Ended');
+            }
+          });
+        });
+      }
+
+      function loadStream(state) {
+        if (!state.sourceUrl) {
+          appendLog('lab', 'Playback URL is required.');
+          setStatus('Missing URL');
+          return;
+        }
+
+        if (!state.sourceUrl.includes('.mediatailor.')) {
+          appendLog(
+            'lab',
+            'Source does not look like a MediaTailor URL. The MediaTailor tracker will not activate.',
+          );
+        }
+
+        persistState();
+        updateActiveSummary(state);
+        setStatus('Loading');
+        appendLog(
+          'lab',
+          'Loading ' +
+            state.format.toUpperCase() +
+            ' ' +
+            state.mode.toUpperCase() +
+            ' stream',
+        );
+
+        disposePlayer();
+
+        player = videojs(PLAYER_ID, {
+          autoplay: state.autoplay,
+          controls: true,
+          fill: true,
+          responsive: false,
+          fluid: false,
+          html5: {
+            vhs: {
+              overrideNative: true,
+            },
+          },
+        });
+
+        player.version = videojs.VERSION;
+        attachPlayerLogging(player);
+
+        const trackerOptions = buildTrackerOptions(state);
+        tracker = new VideojsTracker(player, trackerOptions);
+
+        appendLog(
+          'lab',
+          'Tracker initialized with guide-aligned MediaTailor defaults',
+        );
+
+        player.ready(() => {
+          player.src({
+            src: state.sourceUrl,
+            type: getSourceType(state.format),
+          });
+
+          if (state.autoplay) {
+            player.play().catch((error) => {
+              appendLog('lab', 'Autoplay was blocked: ' + error.message);
+              setStatus('Ready');
+            });
+          } else {
+            setStatus('Ready');
+          }
+        });
+      }
+
+      presetButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          setPreset(button.dataset.format, button.dataset.mode);
+          updateActiveSummary(readState());
+          persistState();
+        });
+      });
+
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        loadStream(readState());
+      });
+
+      [
+        sourceUrlField,
+        formatField,
+        modeField,
+        contentTitleField,
+        autoplayField,
+      ].forEach((element) => {
+        element.addEventListener('change', () => {
+          const state = readState();
+          setPreset(state.format, state.mode);
+          updateActiveSummary(state);
+          persistState();
+        });
+      });
+
+      resetButton.addEventListener('click', () => {
+        disposePlayer();
+        setStatus('Idle');
+        appendLog('lab', 'Player reset');
+        updateActiveSummary({});
+      });
+
+      clearLogButton.addEventListener('click', () => {
+        logOutput.innerHTML = '';
+      });
+
+      patchConsole();
+      createPlayerElement();
+      writeState(loadStoredState() || {});
+      appendLog('lab', 'Lab ready');
+    </script>
+  </body>
+</html>

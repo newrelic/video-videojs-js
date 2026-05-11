@@ -449,15 +449,18 @@ export default class DaiAdsTracker extends VideojsAdsTracker {
 
   getBitrate() {
     const tech = this.getTech()
-    if (tech && tech.tech && tech.tech.stats) {
-      return tech.tech.stats.bandwidth;
+    if (tech && tech.tech && tech.tech.stats && tech.tech.stats.bandwidth) {
+      return Math.round(tech.tech.stats.bandwidth);
     }
+    return null;
   }
 
   getRenditionBitrate() {
     const tech = this.getTech();
     if (tech && tech.getRenditionBitrate) {
-      return tech.getRenditionBitrate();
+      const bitrate = tech.getRenditionBitrate();
+      return bitrate !== null ? Math.round(bitrate) : null;
     }
+    return null;
   }
 }

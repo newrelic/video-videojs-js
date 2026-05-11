@@ -29,6 +29,7 @@ The New Relic Video.js Tracker provides comprehensive video analytics for applic
 - [API Reference](#api-reference)
 - [Bitrate Metrics](#bitrate-metrics)
 - [Ad Tracking Support](#ad-tracking-support)
+- [SSAI Guide](#ssai-guide)
 - [Data Model](#data-model)
 - [Support](#support)
 - [Contribute](#contribute)
@@ -446,19 +447,83 @@ The tracker provides comprehensive ad tracking capabilities:
 
 ### SSAI/DAI Integration
 
-Server-Side Ad Insertion is fully supported with automatic detection and tracking:
+Server-Side Ad Insertion is supported with automatic tracker selection for supported integrations:
 
 ```javascript
-// SSAI is automatically detected - no additional configuration needed
+// SSAI tracker selection is automatic for supported integrations
 const tracker = new VideojsTracker(player, options);
 
 // The tracker will automatically capture:
 // - Ad breaks, starts, and completions
 // - Ad quartiles and click events
-// - SSAI-specific metadata
+// - SSAI-specific metadata when available
 ```
 
 **Example:** See [samples/dai/index.html](./samples/dai/index.html) for a complete SSAI implementation.
+
+> [!NOTE]
+> **Attention:**
+> This version supports tracking for SSAI (Server-Side Ad Insertion), including AWS MediaTailor. See [samples/media-tailor-lab.html](./samples/media-tailor-lab.html) and the [SSAI Guide](./docs/ssai.md).
+
+### AWS MediaTailor Integration
+
+The tracker automatically detects and tracks AWS MediaTailor SSAI streams. It supports:
+
+- **HLS and DASH** manifest formats
+- **VOD and LIVE** stream types
+- **Multiple ads (pods)** within a single break
+- **Quartile tracking** (25%, 50%, 75%)
+- **Tracking metadata enrichment** when MediaTailor tracking data is available
+
+#### Usage
+
+```javascript
+import VideojsTracker from '@newrelic/video-videojs';
+
+// Initialize player with a sessionized MediaTailor playback URL
+player.src({
+  src: 'https://your-mediatailor-endpoint.mediatailor.region.amazonaws.com/v1/master/...',
+  type: 'application/x-mpegURL'
+});
+
+// Initialize tracker - MediaTailor support is automatic
+const tracker = new VideojsTracker(player, options);
+```
+
+The tracker will automatically:
+1. Detect MediaTailor URLs (`.mediatailor.` in URL)
+2. Build the MediaTailor tracking endpoint from the sessionized playback URL
+3. Parse HLS or DASH manifests for ad markers
+4. Track ad breaks, ad starts, quartiles, and ad ends
+5. Enrich ad metadata with the MediaTailor tracking endpoint when available
+6. Handle VOD and LIVE streams appropriately
+
+MediaTailor-specific behavior is automatic. The customer does not need to pass MediaTailor-only configuration flags into the tracker.
+
+## SSAI Guide
+
+For customer-facing SSAI integration details, supported MediaTailor behavior, troubleshooting guidance, and sample usage, see [docs/ssai.md](./docs/ssai.md).
+
+
+## Testing
+
+This project includes comprehensive unit tests for all tracker functionality.
+
+```bash
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run tests in watch mode
+npm run test:watch
+```
+
+For more details, see [test/README.md](./test/README.md).
 
 ## Data Model
 
