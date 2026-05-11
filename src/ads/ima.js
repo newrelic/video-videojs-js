@@ -112,9 +112,10 @@ export default class ImaAdsTracker extends VideojsAdsTracker {
   }
 
   getRenditionBitrate() {
-    if (this.lastAdData) {
-      return this.lastAdData.renditionBitrate;
+    if (this.lastAdData && this.lastAdData.renditionBitrate) {
+      return Math.round(this.lastAdData.renditionBitrate);
     }
+    return null;
   }
 
   registerListeners() {
