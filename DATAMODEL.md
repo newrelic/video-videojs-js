@@ -201,7 +201,7 @@ During typical playback of a 6 Mbps max stream playing at 2 Mbps quality:
 | adQuartile               | Quartile of the ad. 0 before first, 1 after first quartile, 2 after midpoint, 3 after third quartile, 4 when completed.                            |
 | adPosition               | The position of the ad (pre-roll, mid-roll, post-roll).                                                                                            |
 | adCreativeId             | The creative ID of the ad.                                                                                                                         |
-| adPartner                | The ad partner, e.g., ima, freewheel.                                                                                                              |
+| adPartner                | The ad partner, e.g., ima, freewheel, aws-mediatailor.                                                                                             |
 | isBackgroundEvent        | If the player is hidden by another window.                                                                                                         |
 | bufferType               | When buffer starts, i.e., initial, seek, pause & connection.                                                                                       |
 | timeSinceLastAdError     | Time in milliseconds since the last ad error occurred. Only included after an ad error has occurred.                                               |
@@ -214,6 +214,13 @@ During typical playback of a 6 Mbps max stream playing at 2 Mbps quality:
 | instrumentation.provider | Player/agent name.                                                                                                                                 |
 | instrumentation.name     | Name of the instrumentation collecting the data.                                                                                                   |
 | instrumentation.version  | Agent's version.                                                                                                                                   |
+
+**SSAI Notes**
+
+- For server-side ad insertion providers such as AWS MediaTailor, `adPartner` is reported as `aws-mediatailor`.
+- `adPosition` is meaningful for VOD schedules. Live SSAI streams may not provide a pre-roll/mid-roll/post-roll position.
+- `adTitle` and `adCreativeId` can be populated after playback starts if the tracker enriches manifest-derived ad breaks with tracking metadata.
+
 
 ### List of possible Video Ad Actions
 
