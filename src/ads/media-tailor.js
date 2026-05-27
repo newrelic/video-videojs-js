@@ -94,8 +94,17 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.manifestFormat = null; // 'hls' or 'dash'
     this.playbackManifestUrl = player.currentSrc();
 
-    // Customer overrides
+    // trackingUrl: only needed for explicit POST sessions (/v1/session/).
+    // Implicit sessions embed ?aws.sessionId= in the playback URL, from which
+    // the tracking URL is derived automatically. Pass this when the session
+    // POST returns a trackingUrl that cannot be derived from the playback URL.
     this.explicitTrackingUrl = mtOptions.trackingUrl || null;
+
+    // adSegmentPrefix: only needed when the customer configured a CDN ad-segment
+    // prefix in AWS MediaTailor that does NOT follow the AWS-recommended /tm/ path.
+    // Most setups (default AWS hostname or CDN following AWS conventions) are
+    // detected automatically via MT_DEFAULT_AD_SEGMENT_PATH ('/tm/') and do not
+    // need this override.
     this.adSegmentPrefix = mtOptions.adSegmentPrefix || null;
 
     // Ad tracking state
