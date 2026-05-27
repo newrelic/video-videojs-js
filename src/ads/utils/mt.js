@@ -21,6 +21,7 @@ import {
   MT_HLS_CUE_IN_TAG,
   MT_HLS_CUE_OUT_TAG,
   MT_SEGMENT_PATTERN,
+  MT_DEFAULT_AD_SEGMENT_PATH,
   MIN_AD_DURATION,
   AD_TIMING_TOLERANCE,
   SCTE35_SCHEME_MARKER,
@@ -84,16 +85,16 @@ export function buildTrackingEndpointUrl(manifestUrl) {
 /**
  * Checks if segment is a MediaTailor ad segment
  */
-export function isMediaTailorSegment(segment) {
-  // Check MAP URL for MediaTailor pattern
-  if (segment.map && segment.map.uri && segment.map.uri.includes(MT_SEGMENT_PATTERN)) {
-    return true;
-  }
-  // Check segment URL for MediaTailor pattern
-  if (segment.uri && segment.uri.includes(MT_SEGMENT_PATTERN)) {
-    return true;
-  }
-  return false;
+export function isMediaTailorSegment(segment, { adSegmentPrefix } = {}) {
+  const candidates = [MT_SEGMENT_PATTERN, MT_DEFAULT_AD_SEGMENT_PATH];
+  if (adSegmentPrefix) candidates.push(adSegmentPrefix);
+
+  const mapUri = (segment.map && segment.map.uri) || '';
+  const segUri = segment.uri || '';
+
+  return candidates.some(
+    (marker) => mapUri.includes(marker) || segUri.includes(marker),
+  );
 }
 
 /**
@@ -350,7 +351,7 @@ export function parseHlsManifestForAdBreaks(manifestText) {
 /**
  * Detects ads from VHS playlist using discontinuityStarts and MediaTailor segments
  */
-export function detectAdBreaksFromVhsPlaylist(playlist) {
+export function detectAdBreaksFromVhsPlaylist(playlist, { adSegmentPrefix } = {}) {
   const segments = playlist.segments;
   const discontinuityStarts = playlist.discontinuityStarts || [];
   const adBreaks = [];
@@ -360,7 +361,7 @@ export function detectAdBreaksFromVhsPlaylist(playlist) {
   let currentTime = 0;
 
   segments.forEach((segment, index) => {
-    const isMTSegment = isMediaTailorSegment(segment);
+    const isMTSegment = isMediaTailorSegment(segment, { adSegmentPrefix });
     const hasDiscontinuity = discontinuityStarts.includes(index);
 
     if (isMTSegment) {
@@ -627,7 +628,7 @@ export function parseIsoDuration(durationStr) {
  * SINGLE_PERIOD: the entire stream is one period; ads are signalled via
  * SCTE-35 <EventStream> elements inside that period.
  */
-export function parseDashManifestForAdBreaks(xmlText) {
+export function parseDashManifestForAdBreaks(xmlText, { adSegmentPrefix } = {}) {
   const parser = new DOMParser();
   const xml = parser.parseFromString(xmlText, 'text/xml');
   const ads = [];
@@ -648,7 +649,9 @@ export function parseDashManifestForAdBreaks(xmlText) {
       const baseUrlEl = period.querySelector('BaseURL');
       const baseUrl = baseUrlEl ? baseUrlEl.textContent.trim() : '';
 
-      if (!baseUrl.includes(MT_SEGMENT_PATTERN)) {
+      const adCandidates = [MT_SEGMENT_PATTERN, MT_DEFAULT_AD_SEGMENT_PATH];
+      if (adSegmentPrefix) adCandidates.push(adSegmentPrefix);
+      if (!adCandidates.some((m) => baseUrl.includes(m))) {
         return; // content period
       }
 

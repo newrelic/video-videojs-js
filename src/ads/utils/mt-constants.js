@@ -36,7 +36,8 @@ export const DASH_SCTE35_EVENT_STREAM_SELECTOR =
 export const HLS_MIME_TYPE = 'application/vnd.apple.mpegurl'; // MIME type used to detect Safari/native HLS playback support
 
 // MediaTailor URL Patterns
-export const MT_SEGMENT_PATTERN = 'segments.mediatailor'; // Identifies MediaTailor ad segments
+export const MT_SEGMENT_PATTERN = 'segments.mediatailor'; // Identifies MediaTailor ad segments (AWS default hostname)
+export const MT_DEFAULT_AD_SEGMENT_PATH = '/tm/'; // Default ad-segment path per AWS CDN integration guide (custom-CDN setups)
 
 export const TRACKING_API_TIMEOUT_MS = 5000; // Keep tracking metadata requests within the guide's 5s end-to-end budget
 export const DEFAULT_LIVE_POLL_INTERVAL_MS = 5000; // Temporary fallback until manifest metadata provides cadence

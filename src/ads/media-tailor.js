@@ -51,12 +51,10 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   /**
    * Checks if tracker should be used for this player source
    */
-  static isUsing(player) {
-    return (
-      player &&
-      typeof player.currentSrc === 'function' &&
-      player.currentSrc().includes(MEDIATAILOR_HOST_MARKER)
-    );
+  static isUsing(player, options = {}) {
+    // Opt-in flag is the single source of truth.
+    // Accepts { mediatailor: true } or { mediatailor: { trackingUrl, adSegmentPrefix } }.
+    return Boolean(options && options.mediatailor);
   }
 
   /**
@@ -87,10 +85,18 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   constructor(player, options = {}) {
     super(player);
 
+    // Normalize mediatailor option: true | { trackingUrl, adSegmentPrefix } | undefined
+    const mtOptions =
+      options.mediatailor === true ? {} : options.mediatailor || {};
+
     // Initialize state
     this.streamType = null; // 'vod' or 'live'
     this.manifestFormat = null; // 'hls' or 'dash'
     this.playbackManifestUrl = player.currentSrc();
+
+    // Customer overrides
+    this.explicitTrackingUrl = mtOptions.trackingUrl || null;
+    this.adSegmentPrefix = mtOptions.adSegmentPrefix || null;
 
     // Ad tracking state
     this.adSchedule = [];
@@ -147,8 +153,10 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       `[MT - ${getTimestamp()}] Initializing ${this.manifestFormat.toUpperCase()} ${this.streamType.toUpperCase()} tracking`,
     );
 
-    // Extract tracking URL from sessionized URL
-    this.trackingEndpointUrl = buildTrackingEndpointUrl(this.playbackManifestUrl);
+    // Prefer explicit tracking URL (explicit POST session) over derived one
+    this.trackingEndpointUrl =
+      this.explicitTrackingUrl ||
+      buildTrackingEndpointUrl(this.playbackManifestUrl);
     if (this.trackingEndpointUrl) {
       console.log(
         `[MT - ${getTimestamp()}] Tracking URL extracted:`,
@@ -693,7 +701,9 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     );
 
     // VHS strips CUE tags - detect via discontinuityStarts + MediaTailor segments
-    const ads = detectAdBreaksFromVhsPlaylist(playlist);
+    const ads = detectAdBreaksFromVhsPlaylist(playlist, {
+      adSegmentPrefix: this.adSegmentPrefix,
+    });
 
     if (ads.length > 0) {
       console.log(
