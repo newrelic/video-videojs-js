@@ -469,9 +469,18 @@
                   />
                 </div>
               </div>
+              <div style="margin-top:8px;">
+                <button id="initSessionBtn" type="button" style="padding:6px 14px;font-size:13px;cursor:pointer;">
+                  Initialize Session
+                </button>
+                <span id="initSessionStatus" style="margin-left:10px;font-size:12px;color:#888;"></span>
+              </div>
               <div class="hint">
-                Use the actual MediaTailor playback endpoint here. The tracker
-                only activates when the source contains `.mediatailor.`.
+                Paste a <code>/v1/session/</code> URL and click <strong>Initialize Session</strong>
+                to POST it and get back the manifest URL automatically. Or paste a
+                direct <code>/v1/master/</code> playback URL and click Play. Works with
+                default AWS hostnames and custom CDN domains — the tracker
+                activates via the <code>mediatailor: true</code> option, not URL matching.
               </div>
             </div>
 
@@ -556,6 +565,7 @@
       let player = null;
       let tracker = null;
       let consolePatched = false;
+      let explicitTrackingUrl = null;
 
       function appendLog(tag, message) {
         const line = document.createElement('div');
@@ -697,7 +707,9 @@
       }
 
       function buildTrackerOptions(state) {
+        const mtOptions = explicitTrackingUrl ? { trackingUrl: explicitTrackingUrl } : true;
         const options = {
+          mediatailor: mtOptions,
           info: { ...NEW_RELIC_OPTIONS.info },
           customData: {
             ...NEW_RELIC_OPTIONS.customData,
@@ -750,12 +762,7 @@
           return;
         }
 
-        if (!state.sourceUrl.includes('.mediatailor.')) {
-          appendLog(
-            'lab',
-            'Source does not look like a MediaTailor URL. The MediaTailor tracker will not activate.',
-          );
-        }
+        appendLog('lab', 'MediaTailor tracker enabled via opt-in flag (mediatailor: true).');
 
         persistState();
         updateActiveSummary(state);
@@ -851,9 +858,99 @@
         logOutput.innerHTML = '';
       });
 
+      const PRESET_URLS = {
+        'hls-vod':  '',
+        'dash-vod': '',
+        'hls-live': '',
+        'dash-live': '',
+      };
+
+      // Populate URL when a preset button is clicked and no URL is already set
+      presetButtons.forEach((button) => {
+        button.addEventListener('click', () => {
+          const key = `${button.dataset.format}-${button.dataset.mode}`;
+          if (PRESET_URLS[key] && !sourceUrlField.value.trim()) {
+            sourceUrlField.value = PRESET_URLS[key];
+          }
+        });
+      });
+
+      document.getElementById('initSessionBtn').addEventListener('click', async () => {
+        const baseUrl = sourceUrlField.value.trim().replace(/\/$/, '');
+        const statusEl = document.getElementById('initSessionStatus');
+        statusEl.style.color = '#888';
+
+        if (!baseUrl) {
+          statusEl.textContent = 'Paste a /v1/session/ URL first.';
+          return;
+        }
+        if (!baseUrl.includes('/v1/session/')) {
+          statusEl.textContent = 'Not a session URL — paste directly and click Play.';
+          return;
+        }
+
+        // Append format suffix exactly as mock-ads lab does
+        const format = formatField.value;
+        const formatSuffix = format === 'dash' ? 'index.mpd' : 'master.m3u8';
+        const sessionUrl = `${baseUrl}/${formatSuffix}`;
+        const mtOrigin = new URL(baseUrl).origin;
+
+        statusEl.textContent = 'Initializing…';
+        appendLog('lab', `POSTing to: ${sessionUrl}`);
+
+        try {
+          const res = await fetch(sessionUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+          });
+          if (!res.ok) {
+            const body = await res.text();
+            throw new Error(`HTTP ${res.status}: ${body}`);
+          }
+          const data = await res.json();
+
+          if (!data.manifestUrl) throw new Error('No manifestUrl in response');
+
+          // manifestUrl may be relative — prepend origin if needed
+          const manifestUrl = data.manifestUrl.startsWith('http')
+            ? data.manifestUrl
+            : `${mtOrigin}${data.manifestUrl}`;
+
+          sourceUrlField.value = manifestUrl;
+          const rawTracking = data.trackingUrl || null;
+          explicitTrackingUrl = rawTracking
+            ? (rawTracking.startsWith('http') ? rawTracking : `${mtOrigin}${rawTracking}`)
+            : null;
+
+          statusEl.style.color = '#2a9d5c';
+          statusEl.textContent = explicitTrackingUrl
+            ? '✓ manifest + trackingUrl ready'
+            : '✓ manifest URL ready';
+
+          appendLog('lab', 'manifestUrl: ' + manifestUrl);
+          if (explicitTrackingUrl) appendLog('lab', 'trackingUrl: ' + explicitTrackingUrl);
+
+          loadStream(readState());
+          // Restore session URL so Initialize Session works on next click
+          sourceUrlField.value = baseUrl;
+          persistState();
+        } catch (err) {
+          statusEl.style.color = '#c0392b';
+          statusEl.textContent = '✗ ' + err.message;
+          appendLog('lab', 'Session init failed: ' + err.message);
+        }
+      });
+
       patchConsole();
       createPlayerElement();
-      writeState(loadStoredState() || {});
+      const stored = loadStoredState() || {};
+      writeState({
+        format: 'hls',
+        mode: 'vod',
+        ...stored,
+        sourceUrl: stored.sourceUrl || PRESET_URLS['hls-vod'],
+      });
       appendLog('lab', 'Lab ready');
     </script>
   </body>
