@@ -58,18 +58,37 @@ jobs:
 
       - name: Debug git info
         run: |
+          echo "=== Git Config ==="
+          git config --list | grep -E "(remote|branch)"
           echo "=== Git Remote ==="
           git remote -v
           echo "=== Git Status ==="
           git status
-          echo "=== Last 10 commits on master ==="
-          git log master --oneline -10
-          echo "=== Last 10 commits on origin/master ==="
-          git log origin/master --oneline -10
+          echo "=== Commits on master vs origin/master ==="
+          echo "Local master:"
+          git log master --oneline -5
+          echo "Remote origin/master:"
+          git log origin/master --oneline -5
+          echo "=== Are they the same? ==="
+          LOCAL_HEAD=$(git rev-parse master)
+          REMOTE_HEAD=$(git rev-parse origin/master)
+          if [ "$LOCAL_HEAD" = "$REMOTE_HEAD" ]; then
+            echo "✅ Local and remote are in sync"
+          else
+            echo "❌ Local and remote are DIFFERENT"
+            echo "Local: $LOCAL_HEAD"
+            echo "Remote: $REMOTE_HEAD"
+          fi
           echo "=== Git tags ==="
           git tag -l --sort=-v:refname | head -5
           echo "=== Latest tag ==="
           git describe --tags --abbrev=0 || echo "No tags found"
+          echo "=== Commits since latest tag ==="
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -n "$LATEST_TAG" ]; then
+            echo "Commits since $LATEST_TAG:"
+            git log ${LATEST_TAG}..HEAD --oneline
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v5
@@ -102,6 +121,7 @@ jobs:
         if: github.event.inputs.dry-run != 'true'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEBUG: semantic-release:*
         run: |
           # Capture the tag at HEAD before semantic-release runs so we can
           # detect a new tag deterministically (no log-grepping).
