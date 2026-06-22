@@ -46,6 +46,11 @@ jobs:
       - name: Fetch all tags
         run: git fetch --tags --force
 
+      - name: Setup git branch tracking
+        run: |
+          git branch -u origin/master master
+          git status
+
       - name: Setup git
         run: |
           git config user.name "github-actions[bot]"
