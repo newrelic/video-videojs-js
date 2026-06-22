@@ -1,3 +1,17 @@
+# [4.4.0](https://github.com/mlychndnnr/video-videojs-js/compare/v4.3.0...v4.4.0) (2026-06-22)
+
+
+### Bug Fixes
+
+* prevent memory leak in event listeners ([01734da](https://github.com/mlychndnnr/video-videojs-js/commit/01734da1c56c208dfbc46918a0f7b61effde7718))
+* remove invalid comment from package.json ([5ad70ae](https://github.com/mlychndnnr/video-videojs-js/commit/5ad70ae1f4cd9aea61c7f530600ea5703f6cf5e4))
+* resolve audio sync issue ([edd8006](https://github.com/mlychndnnr/video-videojs-js/commit/edd8006ca91527c99a6c23793b6d7904e158ee93))
+
+
+### Features
+
+* add new player enhancement feature ([3a534ca](https://github.com/mlychndnnr/video-videojs-js/commit/3a534ca9f83fadbbaa238d8c097b09aefb73f26a))
+
 # [4.3.0](https://github.com/mlychndnnr/video-videojs-js/compare/v4.2.0...v4.3.0) (2026-06-22)
 
 
