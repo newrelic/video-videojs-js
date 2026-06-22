@@ -595,3 +595,4 @@ export {
   MediaTailorAdsTracker,
 };
 // Fix: audio sync issue
+// Fix: memory leak
