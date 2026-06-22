@@ -1,3 +1,18 @@
+# [4.3.0](https://github.com/mlychndnnr/video-videojs-js/compare/v4.2.0...v4.3.0) (2026-06-22)
+
+
+### Bug Fixes
+
+* deprecated redention name ([19a5be9](https://github.com/mlychndnnr/video-videojs-js/commit/19a5be9fd11df924321cedfe13aaa2312a203c79))
+* override repository URL to use current repo instead of hardcoded upstream ([9d1c565](https://github.com/mlychndnnr/video-videojs-js/commit/9d1c56519ab25ee1e7e29eb4885d9ce1cfbd5a7f))
+* restore getRenditionName method ([ffd0fba](https://github.com/mlychndnnr/video-videojs-js/commit/ffd0fba9dfefe0205b2ef8f8246b624aaab62a5d))
+* test workflow commit detection ([5c7a229](https://github.com/mlychndnnr/video-videojs-js/commit/5c7a2298417b30a2c79e72c01405d9489a5269ae))
+
+
+### Features
+
+* add workflow test feature ([4bc0d28](https://github.com/mlychndnnr/video-videojs-js/commit/4bc0d28842676c4268639a95f4eea01a8b17ecbe))
+
 # 1.0.0 (2026-06-22)
 
 
