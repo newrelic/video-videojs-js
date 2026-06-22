@@ -1,3 +1,10 @@
+## [4.4.1](https://github.com/mlychndnnr/video-videojs-js/compare/v4.4.0...v4.4.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* bitrate fixed ([ddf3ff5](https://github.com/mlychndnnr/video-videojs-js/commit/ddf3ff5ce3d2bb0b0c391eb49305be624411321a))
+
 # [4.4.0](https://github.com/mlychndnnr/video-videojs-js/compare/v4.3.0...v4.4.0) (2026-06-22)
 
 
