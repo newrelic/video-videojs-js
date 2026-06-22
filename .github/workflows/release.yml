@@ -114,7 +114,8 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npx semantic-release --dry-run
+          # Use explicit --repository-url to override hardcoded package.json URL
+          npx semantic-release --dry-run --repository-url "https://github.com/${{ github.repository }}.git"
 
       - name: Run semantic-release
         id: semantic
@@ -128,7 +129,8 @@ jobs:
           PREV_TAG=$(git tag --points-at HEAD | head -n1 || true)
 
           # Fail loudly on real errors instead of swallowing them with `|| true`.
-          npx semantic-release | tee semantic-output.log
+          # Use explicit --repository-url to override hardcoded package.json URL
+          npx semantic-release --repository-url "https://github.com/${{ github.repository }}.git" | tee semantic-output.log
 
           NEW_TAG=$(git tag --points-at HEAD | head -n1 || true)
           if [ -n "$NEW_TAG" ] && [ "$NEW_TAG" != "$PREV_TAG" ]; then
