@@ -213,12 +213,12 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
     return null;
   }
 
-  getRenditionName() {
-    let tech = this.getTech();
-    if (tech && tech.getRenditionName) {
-      return tech.getRenditionName();
-    }
-  }
+  // getRenditionName() {
+  //   let tech = this.getTech();
+  //   if (tech && tech.getRenditionName) {
+  //     return tech.getRenditionName();
+  //   }
+  // }
 
   getManifestBitrate() {
     try {
