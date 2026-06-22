@@ -1,3 +1,10 @@
+## [4.4.2](https://github.com/mlychndnnr/video-videojs-js/compare/v4.4.1...v4.4.2) (2026-06-22)
+
+
+### Bug Fixes
+
+* enhance release workflow with proper git tag and branch setup ([ff9499d](https://github.com/mlychndnnr/video-videojs-js/commit/ff9499d8261c07b6e4050c7d638ba188825f50c4))
+
 ## [4.4.1](https://github.com/mlychndnnr/video-videojs-js/compare/v4.4.0...v4.4.1) (2026-06-22)
 
 
