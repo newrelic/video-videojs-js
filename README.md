@@ -55,7 +55,7 @@ yarn add @newrelic/video-videojs
 
 ### Option 2: Direct Script Include (Without NPM)
 
-For quick integration without a build system, include the tracker directly in your HTML:
+For quick integration without a build system, include the tracker directly in your HTML or Any Frontend application:
 
 ```html
 <!DOCTYPE html>
