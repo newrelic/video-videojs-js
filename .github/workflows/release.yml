@@ -48,6 +48,21 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
+      - name: Debug git info
+        run: |
+          echo "=== Git Remote ==="
+          git remote -v
+          echo "=== Git Status ==="
+          git status
+          echo "=== Last 10 commits on master ==="
+          git log master --oneline -10
+          echo "=== Last 10 commits on origin/master ==="
+          git log origin/master --oneline -10
+          echo "=== Git tags ==="
+          git tag -l --sort=-v:refname | head -5
+          echo "=== Latest tag ==="
+          git describe --tags --abbrev=0 || echo "No tags found"
+
       - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
