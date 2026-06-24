@@ -143,18 +143,7 @@ jobs:
               # Create PR and capture the number from output
               PR_OUTPUT=$(gh pr create \
                 --title "chore(release): v$VERSION" \
-                --body "Automated release PR
-
-**Version**: $VERSION
-**Files Updated**:
-- package.json
-- package-lock.json
-- CHANGELOG.md
-
-**Next Steps**:
-1. Review CHANGELOG for accuracy
-2. Ensure all status checks pass (FOSSA, tests, etc.)
-3. Merge this PR to trigger automated tag creation and npm publishing" \
+                --body "Automated release PR - Version $VERSION: package.json, package-lock.json, and CHANGELOG.md updated. Review and merge to trigger automated publishing." \
                 --base master \
                 --head "$BRANCH" 2>&1)
 
