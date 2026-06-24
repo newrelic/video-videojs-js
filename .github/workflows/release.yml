@@ -140,8 +140,8 @@ jobs:
             if ! git diff-index --quiet HEAD; then
               git push origin "$BRANCH"
 
-              # Create PR
-              PR_NUMBER=$(gh pr create \
+              # Create PR and capture the number from output
+              PR_OUTPUT=$(gh pr create \
                 --title "chore(release): v$VERSION" \
                 --body "Automated release PR
 
@@ -156,8 +156,10 @@ jobs:
 2. Ensure all status checks pass (FOSSA, tests, etc.)
 3. Merge this PR to trigger automated tag creation and npm publishing" \
                 --base master \
-                --head "$BRANCH" \
-                --jq .number)
+                --head "$BRANCH" 2>&1)
+
+              # Extract PR number from output (e.g., "https://github.com/owner/repo/pull/123")
+              PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP 'pull/\K[0-9]+' | head -1)
 
               echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
               echo "Created PR #$PR_NUMBER for v$VERSION"
