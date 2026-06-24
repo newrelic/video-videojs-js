@@ -151,18 +151,26 @@ jobs:
               git push -u origin "$BRANCH"
               sleep 2
 
-              # Create PR using GitHub API
+              # Create PR using simple gh CLI (more reliable than API)
               echo "Creating PR for branch $BRANCH to base master..."
-              PR_JSON=$(gh api repos/${{ github.repository }}/pulls --method POST -f title="chore(release): v$VERSION" -f body="Automated release PR - Version $VERSION: package.json, package-lock.json, and CHANGELOG.md updated. Review and merge to trigger automated publishing." -f base="master" -f head="$BRANCH" 2>&1)
+              set +e  # Disable exit-on-error temporarily
+              PR_CREATE_OUTPUT=$(gh pr create \
+                --title "chore(release): v$VERSION" \
+                --body "Automated release PR - Version $VERSION: package.json, package-lock.json, and CHANGELOG.md updated. Review and merge to trigger automated publishing." \
+                --base master \
+                --head "$BRANCH" 2>&1)
+              PR_CREATE_EXIT=$?
+              set -e  # Re-enable exit-on-error
 
-              echo "API Response: $PR_JSON"
+              echo "PR Create Output: $PR_CREATE_OUTPUT"
+              echo "Exit Code: $PR_CREATE_EXIT"
 
-              # Extract PR number from API response
-              PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number // empty' 2>/dev/null)
+              # Extract PR number from the output (format: https://github.com/owner/repo/pull/NUMBER)
+              PR_NUMBER=$(echo "$PR_CREATE_OUTPUT" | grep -oP 'pull/\K[0-9]+' | head -1)
 
               if [ -z "$PR_NUMBER" ]; then
                 echo "ERROR: Failed to create PR"
-                echo "Full response: $PR_JSON"
+                echo "Full output: $PR_CREATE_OUTPUT"
                 exit 1
               fi
 
