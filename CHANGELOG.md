@@ -1,3 +1,13 @@
+## [4.4.4](https://github.com/mlychndnnr/video-videojs-js/compare/v4.4.3...v4.4.4) (2026-06-24)
+
+
+### Bug Fixes
+
+* improved video playback for testing release workflow ([8f4c3a5](https://github.com/mlychndnnr/video-videojs-js/commit/8f4c3a59f64c57b75978fc9b06bdb910700f5182))
+* resolve video buffering issue for test ([31cf623](https://github.com/mlychndnnr/video-videojs-js/commit/31cf623ea9b7c39a38d0f156d6619bdb704e2264))
+* **workflows:** remove invalid --jq flag from gh pr create command ([a97e793](https://github.com/mlychndnnr/video-videojs-js/commit/a97e793f5ac08a1f5af5d9c177b2a519a75356e1))
+* **workflows:** simplify PR body to single line for YAML compatibility ([a171dd6](https://github.com/mlychndnnr/video-videojs-js/commit/a171dd6982e7522de8b0884d53542c7ed0010d4a))
+
 ## [4.4.3](https://github.com/mlychndnnr/video-videojs-js/compare/v4.4.2...v4.4.3) (2026-06-24)
 
 
