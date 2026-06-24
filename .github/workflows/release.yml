@@ -26,6 +26,8 @@ concurrency:
   group: release-prepare
   cancel-in-progress: false
 
+# Force workflow update
+
 jobs:
   release-prepare:
     name: Prepare Release (Create PR)
