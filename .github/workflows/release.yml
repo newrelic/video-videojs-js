@@ -152,18 +152,22 @@ jobs:
               sleep 2
 
               # Create PR using GitHub API
-              PR_JSON=$(gh api repos/${{ github.repository }}/pulls -f title="chore(release): v$VERSION" -f body="Automated release PR - Version $VERSION: package.json, package-lock.json, and CHANGELOG.md updated. Review and merge to trigger automated publishing." -f base="master" -f head="$BRANCH" 2>&1)
+              echo "Creating PR for branch $BRANCH to base master..."
+              PR_JSON=$(gh api repos/${{ github.repository }}/pulls --method POST -f title="chore(release): v$VERSION" -f body="Automated release PR - Version $VERSION: package.json, package-lock.json, and CHANGELOG.md updated. Review and merge to trigger automated publishing." -f base="master" -f head="$BRANCH" 2>&1)
+
+              echo "API Response: $PR_JSON"
 
               # Extract PR number from API response
-              PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number' 2>/dev/null)
+              PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number // empty' 2>/dev/null)
 
-              if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
-                echo "Failed to create PR. API response: $PR_JSON"
+              if [ -z "$PR_NUMBER" ]; then
+                echo "ERROR: Failed to create PR"
+                echo "Full response: $PR_JSON"
                 exit 1
               fi
 
               echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
-              echo "Created PR #$PR_NUMBER for v$VERSION"
+              echo "✅ Created PR #$PR_NUMBER for v$VERSION"
             else
               echo "No files were updated by semantic-release. Version may already be released."
               exit 1
