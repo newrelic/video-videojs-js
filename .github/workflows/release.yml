@@ -140,15 +140,21 @@ jobs:
             if ! git diff-index --quiet HEAD; then
               git push origin "$BRANCH"
 
-              # Create PR and capture the number from output
-              PR_OUTPUT=$(gh pr create \
+              # Create PR with JSON output to get the number
+              PR_JSON=$(gh pr create \
                 --title "chore(release): v$VERSION" \
                 --body "Automated release PR - Version $VERSION: package.json, package-lock.json, and CHANGELOG.md updated. Review and merge to trigger automated publishing." \
                 --base master \
-                --head "$BRANCH" 2>&1)
+                --head "$BRANCH" \
+                --json number,url 2>&1)
 
-              # Extract PR number from output (e.g., "https://github.com/owner/repo/pull/123")
-              PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP 'pull/\K[0-9]+' | head -1)
+              # Extract PR number using jq
+              PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number' 2>/dev/null)
+
+              # If jq parsing failed, try extracting from URL
+              if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+                PR_NUMBER=$(echo "$PR_JSON" | grep -oP 'pull/\K[0-9]+' | head -1)
+              fi
 
               echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
               echo "Created PR #$PR_NUMBER for v$VERSION"
