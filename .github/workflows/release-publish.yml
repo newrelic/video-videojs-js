@@ -1,0 +1,167 @@
+name: Release Publish
+
+# This workflow triggers after a release PR merges to master.
+# It creates the git tag, then triggers the shared publish workflow
+# which handles npm publishing and S3 artifact uploads.
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to release (e.g., 4.2.1)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-publish
+  cancel-in-progress: false
+
+jobs:
+  check-new-release:
+    name: Check if new release
+    runs-on: ubuntu-latest
+    outputs:
+      should-publish: ${{ steps.check.outputs.should-publish }}
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Check if this is a new release
+        id: check
+        run: |
+          CURRENT_VERSION=$(jq -r '.version' package.json)
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          LAST_VERSION=${LAST_TAG#v}
+
+          if [ "$CURRENT_VERSION" != "$LAST_VERSION" ]; then
+            echo "should-publish=true" >> $GITHUB_OUTPUT
+            echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+            echo "New version detected: $CURRENT_VERSION (was $LAST_VERSION)"
+          else
+            echo "should-publish=false" >> $GITHUB_OUTPUT
+            echo "No new version"
+          fi
+
+  publish:
+    name: Create Tag and Publish
+    needs: check-new-release
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'push' && needs.check-new-release.outputs.should-publish == 'true')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: master
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch all tags
+        run: git fetch --tags --force
+
+      - name: Setup git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24.x'
+          cache: 'npm'
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION="${{ needs.check-new-release.outputs.version }}"
+          if [ -z "$VERSION" ] || [ "$VERSION" == "null" ]; then
+            VERSION=$(jq -r '.version' package.json)
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing version: $VERSION"
+
+      - name: Check if tag already exists
+        id: check-tag
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "tag-exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists"
+          else
+            echo "tag-exists=false" >> $GITHUB_OUTPUT
+            echo "Tag $TAG does not exist, will create it"
+          fi
+
+      - name: Create and push git tag
+        if: steps.check-tag.outputs.tag-exists == 'false'
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          git tag "$TAG"
+          git push origin "$TAG"
+          echo "Created and pushed tag: $TAG"
+
+      - name: Verify build succeeds
+        run: |
+          npm ci
+          npm run build
+          echo "Build verification successful"
+
+      - name: Trigger shared publish workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.actions.createWorkflowDispatch({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'use-shared-publish.yml',
+                ref: 'master'
+              });
+              console.log('✅ Successfully triggered use-shared-publish workflow');
+            } catch (error) {
+              console.error('❌ Failed to trigger use-shared-publish workflow:', error.message);
+              throw error;
+            }
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+
+          gh release create "$TAG" \
+            --title "v$VERSION" \
+            --generate-notes \
+            || echo "Release may already exist, continuing..."
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          TAG="${{ steps.version.outputs.tag }}"
+          echo "## 🚀 Release Initiated" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Version**: v$VERSION" >> $GITHUB_STEP_SUMMARY
+          echo "**Tag**: [$TAG](https://github.com/${{ github.repository }}/releases/tag/$TAG)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Publishing" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Git tag created: $TAG" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Build verified" >> $GITHUB_STEP_SUMMARY
+          echo "- 🔄 Shared publish workflow triggered for:" >> $GITHUB_STEP_SUMMARY
+          echo "  - npm: [@newrelic/video-videojs-js](https://www.npmjs.com/package/@newrelic/video-videojs-js)" >> $GITHUB_STEP_SUMMARY
+          echo "  - S3: media-agents/browser/videojs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Check [use-shared-publish workflow](https://github.com/${{ github.repository }}/actions/workflows/use-shared-publish.yml) for publish status" >> $GITHUB_STEP_SUMMARY
