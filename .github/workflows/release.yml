@@ -61,7 +61,7 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '24.x'
-          cache: 'npm'
+          cache: ''
 
       - name: Install dependencies
         run: npm ci
