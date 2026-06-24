@@ -1,3 +1,10 @@
+## [4.4.3](https://github.com/mlychndnnr/video-videojs-js/compare/v4.4.2...v4.4.3) (2026-06-24)
+
+
+### Bug Fixes
+
+* resolve video loading issue in test ([f44fb05](https://github.com/mlychndnnr/video-videojs-js/commit/f44fb05ff2502e303ceab64e8cf2f200a6d71178))
+
 ## [4.4.2](https://github.com/mlychndnnr/video-videojs-js/compare/v4.4.1...v4.4.2) (2026-06-22)
 
 
