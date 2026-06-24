@@ -133,6 +133,9 @@ jobs:
             echo "PR #$THIS_VERSION_PR already exists for v$VERSION"
             echo "pr_number=$THIS_VERSION_PR" >> $GITHUB_OUTPUT
           else
+            # Clean up any old release branch to avoid GitHub confusion
+            git push origin --delete "$BRANCH" 2>/dev/null || true
+
             # Create release branch with files updated by semantic-release
             git checkout -b "$BRANCH"
 
@@ -145,20 +148,17 @@ jobs:
               git commit -m "chore(release): v$VERSION - Automated version bump and changelog update"
 
               # Push the branch with the commit
-              git push origin "$BRANCH"
+              git push -u origin "$BRANCH"
+              sleep 2
 
-              # Create PR - extract the number from the returned output URL
-              PR_OUTPUT=$(gh pr create \
-                --title "chore(release): v$VERSION" \
-                --body "Automated release PR - Version $VERSION: package.json, package-lock.json, and CHANGELOG.md updated. Review and merge to trigger automated publishing." \
-                --base master \
-                --head "$BRANCH" 2>&1)
+              # Create PR using GitHub API
+              PR_JSON=$(gh api repos/${{ github.repository }}/pulls -f title="chore(release): v$VERSION" -f body="Automated release PR - Version $VERSION: package.json, package-lock.json, and CHANGELOG.md updated. Review and merge to trigger automated publishing." -f base="master" -f head="$BRANCH" 2>&1)
 
-              # Extract PR number from URL (format: https://github.com/owner/repo/pull/NUMBER)
-              PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP 'pull/\K[0-9]+' | head -1)
+              # Extract PR number from API response
+              PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number' 2>/dev/null)
 
-              if [ -z "$PR_NUMBER" ]; then
-                echo "Failed to extract PR number from: $PR_OUTPUT"
+              if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
+                echo "Failed to create PR. API response: $PR_JSON"
                 exit 1
               fi
 
