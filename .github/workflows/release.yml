@@ -136,24 +136,30 @@ jobs:
             # Create release branch with files updated by semantic-release
             git checkout -b "$BRANCH"
 
-            # Verify files were updated
+            # Verify files were updated and commit them
             if ! git diff-index --quiet HEAD; then
+              # Stage all changes made by semantic-release
+              git add -A
+
+              # Commit the changes
+              git commit -m "chore(release): v$VERSION - Automated version bump and changelog update"
+
+              # Push the branch with the commit
               git push origin "$BRANCH"
 
-              # Create PR with JSON output to get the number
-              PR_JSON=$(gh pr create \
+              # Create PR - extract the number from the returned output URL
+              PR_OUTPUT=$(gh pr create \
                 --title "chore(release): v$VERSION" \
                 --body "Automated release PR - Version $VERSION: package.json, package-lock.json, and CHANGELOG.md updated. Review and merge to trigger automated publishing." \
                 --base master \
-                --head "$BRANCH" \
-                --json number,url 2>&1)
+                --head "$BRANCH" 2>&1)
 
-              # Extract PR number using jq
-              PR_NUMBER=$(echo "$PR_JSON" | jq -r '.number' 2>/dev/null)
+              # Extract PR number from URL (format: https://github.com/owner/repo/pull/NUMBER)
+              PR_NUMBER=$(echo "$PR_OUTPUT" | grep -oP 'pull/\K[0-9]+' | head -1)
 
-              # If jq parsing failed, try extracting from URL
-              if [ -z "$PR_NUMBER" ] || [ "$PR_NUMBER" = "null" ]; then
-                PR_NUMBER=$(echo "$PR_JSON" | grep -oP 'pull/\K[0-9]+' | head -1)
+              if [ -z "$PR_NUMBER" ]; then
+                echo "Failed to extract PR number from: $PR_OUTPUT"
+                exit 1
               fi
 
               echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
