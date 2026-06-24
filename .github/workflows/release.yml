@@ -63,10 +63,15 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: '24.x'
-          cache: ''
+
+      - name: Clean npm cache to remove stale git plugin
+        run: npm cache clean --force
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Remove git plugin from node_modules
+        run: rm -rf node_modules/@semantic-release/git
 
       - name: Run build
         run: npm run build
