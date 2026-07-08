@@ -297,6 +297,22 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
+   * Aborts any in-flight tracking/manifest fetches and clears their controllers.
+   */
+  abortInFlightFetches() {
+    if (this.trackingAbortController) {
+      Log.debug(`[MT - ${getTimestamp()}] Aborting in-flight tracking fetch`);
+      this.trackingAbortController.abort();
+      this.trackingAbortController = null;
+    }
+    if (this.manifestAbortController) {
+      Log.debug(`[MT - ${getTimestamp()}] Aborting in-flight manifest fetch`);
+      this.manifestAbortController.abort();
+      this.manifestAbortController = null;
+    }
+  }
+
+  /**
    * Sets up VOD tracking (single parse, no polling)
    */
   setupVODTracking() {
@@ -1377,14 +1393,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
     // Cancel in-flight work and stop polling on the old session.
     this.stopLivePolling();
-    if (this.trackingAbortController) {
-      this.trackingAbortController.abort();
-      this.trackingAbortController = null;
-    }
-    if (this.manifestAbortController) {
-      this.manifestAbortController.abort();
-      this.manifestAbortController = null;
-    }
+    this.abortInFlightFetches();
 
     // Clear schedule and in-progress ad/tracking state.
     this.adSchedule = [];
@@ -1560,18 +1569,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
     this.isDisposed = true;
 
-    if (this.trackingAbortController) {
-      Log.debug(`[MT - ${getTimestamp()}] Aborting in-flight tracking fetch`);
-      this.trackingAbortController.abort();
-      this.trackingAbortController = null;
-    }
-
-    if (this.manifestAbortController) {
-      Log.debug(`[MT - ${getTimestamp()}] Aborting in-flight manifest fetch`);
-      this.manifestAbortController.abort();
-      this.manifestAbortController = null;
-    }
-
+    this.abortInFlightFetches();
     this.stopLivePolling();
     this.unregisterListeners();
     super.dispose && super.dispose();
