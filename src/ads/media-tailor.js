@@ -662,9 +662,11 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         messageData: eventData.messageData,
       });
 
-      // Calculate timing
-      const startTime = parseFloat(eventData.presentationTime || 0);
-      const duration = parseFloat(eventData.duration || 0);
+      // Calculate timing — presentationTime/duration are in timescale ticks,
+      // convert to seconds (fallback to 1 when absent or zero to avoid NaN).
+      const timescale = parseFloat(eventData.timescale) || 1;
+      const startTime = parseFloat(eventData.presentationTime || 0) / timescale;
+      const duration = parseFloat(eventData.duration || 0) / timescale;
 
       if (duration > 0) {
         const adBreak = {
