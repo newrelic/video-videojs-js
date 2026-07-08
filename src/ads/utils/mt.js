@@ -310,6 +310,9 @@ export function parseHlsManifestForAdBreaks(manifestText) {
         hasFiredStart: false,
         hasFiredEnd: false,
         hasFiredAdStart: false,
+        hasFiredQ1: false,
+        hasFiredQ2: false,
+        hasFiredQ3: false,
         confirmedByTracking: false,
       };
     }
