@@ -45,7 +45,9 @@ const Log = nrvideoCore.Log;
  * - Client-side ad detection from manifest markers (CUE-OUT/CUE-IN)
  * - Pod-level tracking (multiple ads within one break)
  * - VOD and Live stream support
- * - Zero race conditions via VHS player hooks
+ * - VHS player hooks avoid races within the manifest-parsing pipeline;
+ *   dispose, timer-restart, and source-change races are handled separately
+ *   (see the tracker runtime-path notes), not eliminated by the hooks alone
  * - Tracking API metadata enrichment
  */
 export default class MediaTailorAdsTracker extends VideojsAdsTracker {
@@ -315,7 +317,8 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
-   * Hooks into player's manifest loading (zero race condition)
+   * Hooks into player's manifest loading. The hook itself races-safely with
+   * the manifest-parsing pipeline; it does not cover dispose/timer/source-change.
    * Supports: VHS, Native HLS, contrib-hls, Shaka, dash.js
    */
   hookPlayerManifest() {
