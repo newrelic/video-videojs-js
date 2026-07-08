@@ -765,7 +765,11 @@ export function parseDashManifestForAdBreaks(xmlText, { adSegmentPrefix } = {}) 
 export async function getTrackingMetadata(trackingEndpointUrl, timeout = 8000, externalSignal = null) {
   // Create AbortController for timeout support
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  let didTimeout = false;
+  const timeoutId = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeout);
 
   // If external signal provided, listen for its abort event
   const abortHandler = () => controller.abort();
@@ -785,7 +789,9 @@ export async function getTrackingMetadata(trackingEndpointUrl, timeout = 8000, e
     }
 
     if (!response.ok) {
-      throw new Error(`Tracking API error: ${response.status}`);
+      const httpError = new Error(`Tracking API error: ${response.status}`);
+      httpError.status = response.status;
+      throw httpError;
     }
 
     return await response.json();
@@ -793,6 +799,14 @@ export async function getTrackingMetadata(trackingEndpointUrl, timeout = 8000, e
     clearTimeout(timeoutId);
     if (externalSignal) {
       externalSignal.removeEventListener('abort', abortHandler);
+    }
+    // A timeout-triggered abort is distinct from a caller-initiated (dispose)
+    // abort: tag it so the tracker can emit ADS_TIMEOUT instead of staying
+    // silent the way it does for a dispose abort.
+    if (didTimeout) {
+      const timeoutError = new Error(`Tracking API timeout after ${timeout}ms`);
+      timeoutError.code = 'ADS_TIMEOUT';
+      throw timeoutError;
     }
     throw error;
   }

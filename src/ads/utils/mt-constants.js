@@ -81,3 +81,16 @@ export const QUARTILES = {
   Q2: 0.5, // 50% progress
   Q3: 0.75, // 75% progress
 };
+
+// AD_ERROR taxonomy — semantic errorCode attribute values emitted on
+// non-terminal MediaTailor failures. Wire format matches the other trackers
+// exactly, so operators see consistent codes across platforms in NRDB.
+export const MT_AD_ERROR_CODE = {
+  NO_FILL: 'NO_FILL', // tracking returned an avail with ads: []
+  ADS_TIMEOUT: 'ADS_TIMEOUT', // tracking fetch timed out
+  TRACKING_FETCH_FAILED: 'TRACKING_FETCH_FAILED', // non-timeout, non-400 fetch failure after retry
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED', // HTTP 400; reset-and-retry also failed
+  MISSING_AVAIL_START: 'MISSING_AVAIL_START', // avail has ads but no startTimeInSeconds
+  MANIFEST_PARSE_FAILED: 'MANIFEST_PARSE_FAILED', // manifest bytes unparseable
+  MANIFEST_TRACKING_MISMATCH: 'MANIFEST_TRACKING_MISMATCH', // pod count vs ad count disagreement
+};

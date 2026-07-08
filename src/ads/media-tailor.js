@@ -9,6 +9,7 @@ import {
   TRACKING_API_TIMEOUT_MS,
   STREAM_TYPE,
   MANIFEST_TYPE,
+  MT_AD_ERROR_CODE,
 } from './utils/mt-constants.js';
 import {
   getTimestamp,
@@ -943,6 +944,15 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         return;
       }
 
+      // Retries exhausted — surface a semantic error before falling back to
+      // manifest-only data. A timeout maps to ADS_TIMEOUT; anything else
+      // (non-400) is a generic TRACKING_FETCH_FAILED.
+      const code =
+        error.code === 'ADS_TIMEOUT'
+          ? MT_AD_ERROR_CODE.ADS_TIMEOUT
+          : MT_AD_ERROR_CODE.TRACKING_FETCH_FAILED;
+      this.sendAdError(code, 'tracking-fetch', error.message);
+
       Log.debug(
         `[MT - ${getTimestamp()}] Max retries reached, continuing with manifest data only`,
       );
@@ -1306,6 +1316,23 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.player.one('loadedmetadata', () => {
       this.streamType = detectPlaybackStreamType(this.player.duration());
       this.initializeTracking();
+    });
+  }
+
+  /**
+   * Emit an AD_ERROR with the semantic MediaTailor error taxonomy so operators
+   * can see why ads failed in NRDB instead of only a debug log. Delegates to
+   * the parent error event, which resolves to AD_ERROR while in an ad (and
+   * CONTENT_ERROR otherwise). `code` must be an MT_AD_ERROR_CODE value.
+   */
+  sendAdError(code, source, message) {
+    Log.debug(
+      `[MT - ${getTimestamp()}] → AD_ERROR ${code} (${source}): ${message}`,
+    );
+    this.sendError({
+      errorCode: code,
+      errorSource: source,
+      errorMessage: message,
     });
   }
 
