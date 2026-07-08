@@ -38,6 +38,25 @@ const nrvideoCore = nrvideo.default || nrvideo;
 const Log = nrvideoCore.Log;
 
 /**
+ * SDK-boundary anti-patterns — what this tracker must NEVER do.
+ *
+ * MediaTailor stitches ads server-side; this tracker only observes the
+ * stitched stream and reports engagement. The following are out of scope by
+ * design — a violation is always a wrong-metric or scope-creep bug:
+ *
+ *  1. Do NOT fire VAST tracking beacons (the ad server / consumer does this).
+ *  2. Do NOT resolve VAST wrappers.
+ *  3. Do NOT implement ad personalization / targeting.
+ *  4. Do NOT cache ads across sessions (each sessionId is its own context).
+ *  5. Do NOT modify manifest query parameters.
+ *  6. Do NOT implement avail suppression.
+ *  7. Do NOT render ad UI, pause the player, or call back into business logic.
+ *  8. Do NOT assume every avail has ads (no-fill is valid — see no-fill handling).
+ *  9. Do NOT pre-fire impression beacons.
+ * 10. Do NOT perform OMID / viewability handoff.
+ */
+
+/**
  * AWS MediaTailor Ad Tracker
  * Tracks ads from AWS MediaTailor SSAI streams (HLS/DASH)
  *
