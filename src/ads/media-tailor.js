@@ -133,6 +133,28 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       Log.debug('[MT] ad segment detection: default (segments.mediatailor hostname or /tm/ path)');
     }
 
+    // pollIntervalMs: optional override for the live poll cadence. When set it
+    // wins over the manifest-derived interval, letting battery-constrained
+    // clients tune the loop; otherwise the tracker keeps its dynamic behavior.
+    // Clamped to [100, 5000] ms; a non-numeric value is ignored with a warning.
+    this.pollIntervalMs = null;
+    if (mtOptions.pollIntervalMs != null) {
+      const requested = Number(mtOptions.pollIntervalMs);
+      if (Number.isFinite(requested)) {
+        const clamped = Math.min(5000, Math.max(100, requested));
+        if (clamped !== requested) {
+          Log.warn(
+            `[MT] pollIntervalMs ${requested} out of range [100, 5000] — clamped to ${clamped}`,
+          );
+        }
+        this.pollIntervalMs = clamped;
+      } else {
+        Log.warn(
+          `[MT] pollIntervalMs must be a number — ignoring "${mtOptions.pollIntervalMs}"`,
+        );
+      }
+    }
+
     // Ad tracking state
     this.adSchedule = [];
     this.currentAdBreak = null;
@@ -306,6 +328,10 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    * Returns the live polling interval in milliseconds
    */
   getLiveRefreshIntervalMs() {
+    // An explicit pollIntervalMs overrides the manifest-derived cadence.
+    if (this.pollIntervalMs) {
+      return this.pollIntervalMs;
+    }
     return this.liveRefreshIntervalSeconds
       ? this.liveRefreshIntervalSeconds * 1000
       : DEFAULT_LIVE_POLL_INTERVAL_MS;
