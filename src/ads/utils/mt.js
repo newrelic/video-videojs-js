@@ -783,14 +783,45 @@ export function parseDashManifestForAdBreaks(xmlText, { adSegmentPrefix } = {}) 
   if (periods.length > 1) {
     // ── MULTI_PERIOD ──────────────────────────────────────────────────────────
     // Ad periods are identified by a BaseURL pointing to the MediaTailor CDN.
-    periods.forEach((period) => {
-      const baseUrlEl = period.querySelector('BaseURL');
-      const baseUrl = baseUrlEl ? baseUrlEl.textContent.trim() : '';
+    const adCandidates = [MT_SEGMENT_PATTERN, MT_DEFAULT_AD_SEGMENT_PATH];
+    if (adSegmentPrefix) adCandidates.push(adSegmentPrefix);
+    const matchesAdMarker = (url) =>
+      !!url && adCandidates.some((m) => url.includes(m));
 
-      const adCandidates = [MT_SEGMENT_PATTERN, MT_DEFAULT_AD_SEGMENT_PATH];
-      if (adSegmentPrefix) adCandidates.push(adSegmentPrefix);
-      if (!adCandidates.some((m) => baseUrl.includes(m))) {
-        return; // content period
+    // Direct-child BaseURL only (querySelector would match a descendant rep's).
+    const directBaseUrl = (el) => {
+      for (const child of el.children) {
+        if (child.tagName === 'BaseURL') return child.textContent.trim();
+      }
+      return null;
+    };
+
+    // A period is an ad only if EVERY Representation resolves to an ad-marked
+    // BaseURL. Matching on any single rep (e.g. a shared-CDN audio rep) would
+    // misclassify a content period and block content telemetry.
+    const isAdPeriod = (period) => {
+      const periodBaseUrl = directBaseUrl(period) || '';
+      const adaptationSets = period.querySelectorAll('AdaptationSet');
+      let totalReps = 0;
+      let adReps = 0;
+      adaptationSets.forEach((as) => {
+        const asBaseUrl = directBaseUrl(as) || periodBaseUrl;
+        as.querySelectorAll('Representation').forEach((rep) => {
+          totalReps += 1;
+          const repBaseUrl = directBaseUrl(rep) || asBaseUrl;
+          if (matchesAdMarker(repBaseUrl)) adReps += 1;
+        });
+      });
+      // No representations to inspect — fall back to the period-level BaseURL.
+      if (totalReps === 0) {
+        return matchesAdMarker(periodBaseUrl);
+      }
+      return adReps === totalReps;
+    };
+
+    periods.forEach((period) => {
+      if (!isAdPeriod(period)) {
+        return; // content period (or mixed-rep — treated as content)
       }
 
       const periodId = period.getAttribute('id') || '';
