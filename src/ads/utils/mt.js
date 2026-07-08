@@ -678,6 +678,23 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
 }
 
 /**
+ * Extracts a MediaTailor tracking URL published in the manifest via
+ * `#EXT-X-DATERANGE:CLASS="tracking",X-ASSET-URI="…"`. This is the spec's
+ * primary discovery mechanism and works on non-AWS CDNs where the URL-rewrite
+ * heuristic doesn't apply. Case-insensitive and null-safe.
+ */
+export function extractHlsTrackingUrl(manifestText) {
+  if (!manifestText) return null;
+  for (const line of manifestText.split('\n')) {
+    if (!/^#EXT-X-DATERANGE/i.test(line)) continue;
+    if (!/CLASS="tracking"/i.test(line)) continue;
+    const match = line.match(/X-ASSET-URI="([^"]+)"/i);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+/**
  * Extracts the HLS live target duration from manifest text.
  * In HLS, EXT-X-TARGETDURATION is the closest manifest-level hint for refresh cadence.
  */

@@ -26,6 +26,7 @@ import {
   detectAdBreaksFromVhsPlaylist,
   whichAdSegmentMarker,
   enrichAdScheduleWithTrackingMetadata,
+  extractHlsTrackingUrl,
   extractHlsTargetDurationSeconds,
   extractDashMinimumUpdatePeriodSeconds,
   fetchHlsMasterManifest,
@@ -546,6 +547,18 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       // Fetch media playlist
       const mediaText = await fetchHlsMediaPlaylist(mediaPlaylistUrl);
       if (this.isDisposed) return; // disposed mid-fetch — don't touch state
+
+      // Prefer a tracking URL published in the manifest (DATERANGE) over the
+      // URL-rewrite heuristic, unless the caller passed an explicit override.
+      if (!this.explicitTrackingUrl) {
+        const daterangeTrackingUrl = extractHlsTrackingUrl(mediaText);
+        if (daterangeTrackingUrl && daterangeTrackingUrl !== this.trackingEndpointUrl) {
+          Log.debug(
+            `[MT - ${getTimestamp()}] Tracking URL from DATERANGE: ${daterangeTrackingUrl}`,
+          );
+          this.trackingEndpointUrl = daterangeTrackingUrl;
+        }
+      }
 
       const hlsTargetDurationSeconds = extractHlsTargetDurationSeconds(mediaText);
       this.updateLiveRefreshIntervalFromManifest(
