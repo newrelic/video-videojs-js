@@ -1262,6 +1262,24 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   dispose() {
     Log.debug(`[MT - ${getTimestamp()}] Disposing MediaTailorAdsTracker`);
 
+    // If we're torn down mid-break, synthesize the outstanding closing events
+    // so downstream sees a balanced AD_BREAK_START → … → AD_END → AD_BREAK_END
+    // sequence instead of a dangling open break. Nulling currentAdBreak keeps
+    // this idempotent across repeated dispose() calls.
+    if (this.currentAdBreak) {
+      if (this.currentAdPod) {
+        Log.debug(`[MT - ${getTimestamp()}] → AD_END (dispose during active ad)`);
+        this.sendEnd();
+        this.currentAdPod = null;
+      }
+      if (!this.currentAdBreak.hasFiredEnd) {
+        Log.debug(`[MT - ${getTimestamp()}] → AD_BREAK_END (dispose during active ad)`);
+        this.sendAdBreakEnd();
+        this.currentAdBreak.hasFiredEnd = true;
+      }
+      this.currentAdBreak = null;
+    }
+
     this.isDisposed = true;
 
     if (this.trackingAbortController) {
