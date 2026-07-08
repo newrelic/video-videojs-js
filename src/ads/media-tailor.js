@@ -1050,7 +1050,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
     quartilesToFire.forEach(({ quartile, key }) => {
       Log.debug(`[MT - ${getTimestamp()}] → AD_QUARTILE ${quartile * 25}%`);
-      this.sendAdQuartile({ quartile });
+      this.sendAdQuartile({ quartile, adPrimaryId: this.getAdPrimaryId() });
       adObject[`hasFired${key.toUpperCase()}`] = true;
     });
   }
@@ -1158,7 +1158,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
             // End previous pod
             if (this.currentAdPod) {
               Log.debug(`[MT - ${getTimestamp()}] → AD_END (pod transition)`);
-              this.sendEnd();
+              this.sendEnd({ adPrimaryId: this.getAdPrimaryId() });
             }
 
             // Start new pod
@@ -1186,6 +1186,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
             this.sendStart({
               adPartner: 'aws-mediatailor',
               adPosition: activeAdBreak.adPosition,
+              adPrimaryId: this.getAdPrimaryId(),
             });
             activePod.hasFiredStart = true;
           }
@@ -1198,7 +1199,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
           // from segment-rounding). Fire AD_END now so completion isn't lost;
           // AD_BREAK_END still fires when the break itself ends.
           Log.debug(`[MT - ${getTimestamp()}] → AD_END (pod ended in break)`);
-          this.sendEnd();
+          this.sendEnd({ adPrimaryId: this.getAdPrimaryId() });
           this.currentAdPod = null;
         }
       } else {
@@ -1220,6 +1221,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
           this.sendStart({
             adPartner: 'aws-mediatailor',
             adPosition: activeAdBreak.adPosition,
+            adPrimaryId: this.getAdPrimaryId(),
           });
           activeAdBreak.hasFiredAdStart = true;
         }
@@ -1234,7 +1236,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       // End last pod
       if (this.currentAdPod) {
         Log.debug(`[MT - ${getTimestamp()}] → AD_END (final pod)`);
-        this.sendEnd();
+        this.sendEnd({ adPrimaryId: this.getAdPrimaryId() });
         this.currentAdPod = null;
       }
 
@@ -1424,7 +1426,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       return;
     }
     Log.debug(`[MT - ${getTimestamp()}] notifyAdSkipped → AD_END (skipped)`);
-    this.sendEnd({ skipped: true });
+    this.sendEnd({ skipped: true, adPrimaryId: this.getAdPrimaryId() });
   }
 
   /**
@@ -1443,13 +1445,34 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   getVideoId() {
     if (this.currentAdPod) {
       return (
-        this.currentAdPod.creativeId ||
+        this.currentAdPod.adId ||
         this.currentAdPod.title ||
         this.currentAdBreak?.id ||
         null
       );
     }
-    return this.currentAdBreak?.creativeId || this.currentAdBreak?.id || null;
+    return this.currentAdBreak?.adId || this.currentAdBreak?.id || null;
+  }
+
+  /**
+   * Returns the stable primary ad identity for New Relic (adPrimaryId
+   * attribute). Prefers the VAST creativeId (stable across avails), falling
+   * back to availId:adId, so count(DISTINCT adPrimaryId) reflects true
+   * creatives rather than per-avail adIds.
+   */
+  getAdPrimaryId() {
+    const ad = this.currentAdPod || this.currentAdBreak;
+    if (!ad) {
+      return null;
+    }
+    if (ad.creativeId) {
+      return ad.creativeId;
+    }
+    const availId = this.currentAdBreak?.availId;
+    if (availId && ad.adId) {
+      return `${availId}:${ad.adId}`;
+    }
+    return ad.adId || ad.id || null;
   }
 
   /**
@@ -1511,7 +1534,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     if (this.currentAdBreak) {
       if (this.currentAdPod) {
         Log.debug(`[MT - ${getTimestamp()}] → AD_END (dispose during active ad)`);
-        this.sendEnd();
+        this.sendEnd({ adPrimaryId: this.getAdPrimaryId() });
         this.currentAdPod = null;
       }
       if (!this.currentAdBreak.hasFiredEnd) {

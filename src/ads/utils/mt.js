@@ -575,7 +575,8 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
       existingAd.id = avail.availId;
       existingAd.availId = avail.availId;
       existingAd.availProgramDateTime = avail.availProgramDateTime;
-      existingAd.creativeId = firstAd.adId;
+      existingAd.adId = firstAd.adId;
+      existingAd.creativeId = firstAd.creativeId || null;
       existingAd.title = firstAd.adTitle;
       existingAd.confirmedByTracking = true;
       if (missingStart) {
@@ -598,7 +599,8 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
               duration: trackingAd.durationInSeconds,
               endTime: trackingAd.startTimeInSeconds + trackingAd.durationInSeconds,
               title: trackingAd.adTitle,
-              creativeId: trackingAd.adId,
+              adId: trackingAd.adId,
+              creativeId: trackingAd.creativeId || null,
               hasFiredStart: false,
               hasFiredQ1: false,
               hasFiredQ2: false,
@@ -608,7 +610,8 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
         } else if (manifestPodCount === trackingAdCount) {
           avail.ads.forEach((trackingAd, adIndex) => {
             existingAd.pods[adIndex].title = trackingAd.adTitle;
-            existingAd.pods[adIndex].creativeId = trackingAd.adId;
+            existingAd.pods[adIndex].adId = trackingAd.adId;
+            existingAd.pods[adIndex].creativeId = trackingAd.creativeId || null;
             existingAd.pods[adIndex].trackingStartTime = trackingAd.startTimeInSeconds;
             existingAd.pods[adIndex].trackingDuration = trackingAd.durationInSeconds;
           });
@@ -626,7 +629,8 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
             });
             if (best && bestDelta <= AD_TIMING_TOLERANCE) {
               pod.title = best.adTitle;
-              pod.creativeId = best.adId;
+              pod.adId = best.adId;
+              pod.creativeId = best.creativeId || null;
               pod.trackingStartTime = best.startTimeInSeconds;
               pod.trackingDuration = best.durationInSeconds;
             }
@@ -643,7 +647,8 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
         duration: avail.durationInSeconds,
         endTime: resolvedStart + avail.durationInSeconds,
         title: firstAd.adTitle,
-        creativeId: firstAd.adId,
+        adId: firstAd.adId,
+        creativeId: firstAd.creativeId || null,
         source: 'tracking-api',
         confirmedByTracking: true,
         hadMissingAvailStart: missingStart,
@@ -658,7 +663,8 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
           duration: ad.durationInSeconds,
           endTime: ad.startTimeInSeconds + ad.durationInSeconds,
           title: ad.adTitle,
-          creativeId: ad.adId,
+          adId: ad.adId,
+          creativeId: ad.creativeId || null,
           hasFiredStart: false,
           hasFiredQ1: false,
           hasFiredQ2: false,
