@@ -1129,6 +1129,16 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
             'MediaTailor avail missing startTimeInSeconds; fell back to first ad',
           );
         }
+
+        if (activeAdBreak.podCountMismatch) {
+          // Manifest pod count and tracking ad count disagreed; we kept the
+          // manifest geometry and matched by closest time. Surface it once.
+          this.sendAdError(
+            MT_AD_ERROR_CODE.MANIFEST_TRACKING_MISMATCH,
+            'tracking-merge',
+            'Manifest pod count differs from tracking ad count',
+          );
+        }
       }
 
       // No-fill avails fire only the break boundaries (AD_BREAK_START above and

@@ -573,17 +573,17 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
         existingAd.hadMissingAvailStart = true;
       }
 
-      // Enrich pods with tracking ad metadata
+      // Enrich pods with tracking ad metadata. Three cases: manifest has no
+      // pods yet (adopt tracking), counts agree (align by index), or counts
+      // disagree (keep manifest geometry — authoritative for tick timing —
+      // match each pod to the closest tracking ad by time, and flag the break
+      // so MANIFEST_TRACKING_MISMATCH surfaces).
       if (avail.ads && avail.ads.length > 0 && existingAd.pods) {
-        avail.ads.forEach((trackingAd, adIndex) => {
-          if (existingAd.pods[adIndex]) {
-            // Update existing pod
-            existingAd.pods[adIndex].title = trackingAd.adTitle;
-            existingAd.pods[adIndex].creativeId = trackingAd.adId;
-            existingAd.pods[adIndex].trackingStartTime = trackingAd.startTimeInSeconds;
-            existingAd.pods[adIndex].trackingDuration = trackingAd.durationInSeconds;
-          } else {
-            // Add new pod from tracking
+        const manifestPodCount = existingAd.pods.length;
+        const trackingAdCount = avail.ads.length;
+
+        if (manifestPodCount === 0) {
+          avail.ads.forEach((trackingAd) => {
             existingAd.pods.push({
               startTime: trackingAd.startTimeInSeconds,
               duration: trackingAd.durationInSeconds,
@@ -595,8 +595,34 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
               hasFiredQ2: false,
               hasFiredQ3: false,
             });
-          }
-        });
+          });
+        } else if (manifestPodCount === trackingAdCount) {
+          avail.ads.forEach((trackingAd, adIndex) => {
+            existingAd.pods[adIndex].title = trackingAd.adTitle;
+            existingAd.pods[adIndex].creativeId = trackingAd.adId;
+            existingAd.pods[adIndex].trackingStartTime = trackingAd.startTimeInSeconds;
+            existingAd.pods[adIndex].trackingDuration = trackingAd.durationInSeconds;
+          });
+        } else {
+          existingAd.podCountMismatch = true;
+          existingAd.pods.forEach((pod) => {
+            let best = null;
+            let bestDelta = Infinity;
+            avail.ads.forEach((trackingAd) => {
+              const delta = Math.abs(trackingAd.startTimeInSeconds - pod.startTime);
+              if (delta < bestDelta) {
+                bestDelta = delta;
+                best = trackingAd;
+              }
+            });
+            if (best && bestDelta <= AD_TIMING_TOLERANCE) {
+              pod.title = best.adTitle;
+              pod.creativeId = best.adId;
+              pod.trackingStartTime = best.startTimeInSeconds;
+              pod.trackingDuration = best.durationInSeconds;
+            }
+          });
+        }
       }
     } else {
       // Add new ad from tracking
