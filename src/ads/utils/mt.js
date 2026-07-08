@@ -360,6 +360,15 @@ export function parseHlsManifestForAdBreaks(manifestText) {
         if (actualDuration >= MIN_AD_DURATION) {
           currentAdBreak.duration = actualDuration;
           currentAdBreak.endTime = currentTime;
+          // Clamp pods so a segment-rounding overshoot can't push a pod's end
+          // past the break end (which would keep findActivePod "in a pod"
+          // beyond the break).
+          adPods.forEach((pod) => {
+            if (pod.endTime > currentTime) {
+              pod.endTime = currentTime;
+              pod.duration = pod.endTime - pod.startTime;
+            }
+          });
           currentAdBreak.pods = adPods;
           adBreaks.push(currentAdBreak);
         }

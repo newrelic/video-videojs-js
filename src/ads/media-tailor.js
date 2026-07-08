@@ -1193,6 +1193,13 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
           // Track quartiles for pod
           const podProgress = currentTime - activePod.startTime;
           this.trackQuartiles(activePod, podProgress);
+        } else if (this.currentAdPod) {
+          // Playhead left the pod but is still inside the break (a dead-zone
+          // from segment-rounding). Fire AD_END now so completion isn't lost;
+          // AD_BREAK_END still fires when the break itself ends.
+          Log.debug(`[MT - ${getTimestamp()}] → AD_END (pod ended in break)`);
+          this.sendEnd();
+          this.currentAdPod = null;
         }
       } else {
         // No pods - treat entire break as single ad
