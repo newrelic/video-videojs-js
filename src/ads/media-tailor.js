@@ -206,6 +206,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.onWaiting = this.onWaiting.bind(this);
     this.onEnded = this.onEnded.bind(this);
     this.onTimeUpdate = this.onTimeUpdate.bind(this);
+    this.onSourceChange = this.onSourceChange.bind(this);
 
     this.player.on('pause', this.onPause);
     this.player.on('playing', this.onPlaying);
@@ -214,6 +215,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.player.on('waiting', this.onWaiting);
     this.player.on('ended', this.onEnded);
     this.player.on('timeupdate', this.onTimeUpdate);
+    this.player.on('loadstart', this.onSourceChange);
     Log.debug(`[MT - ${getTimestamp()}] Event listeners registered`);
   }
 
@@ -229,6 +231,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.player.off('waiting', this.onWaiting);
     this.player.off('ended', this.onEnded);
     this.player.off('timeupdate', this.onTimeUpdate);
+    this.player.off('loadstart', this.onSourceChange);
     this.stopLivePolling();
   }
 
@@ -1203,6 +1206,59 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       this.sendContentEnd();
       this.hasEndedContent = true;
     }
+  }
+
+  /**
+   * Handle source swaps (player.src(newUrl)). Each MediaTailor session is
+   * anchored to a sessionId in the manifest URL, so a new source means a new
+   * ad-stitching context: clear the stale schedule, cancel in-flight fetches,
+   * re-derive the tracking endpoint from the new URL, and re-initialize once
+   * the new source's metadata is ready. Guarded on streamType so the initial
+   * load (handled in the constructor) is never double-initialized.
+   */
+  onSourceChange() {
+    const newUrl = this.player.currentSrc();
+    if (!this.streamType || !newUrl || newUrl === this.playbackManifestUrl) {
+      return;
+    }
+
+    Log.debug(`[MT - ${getTimestamp()}] Source changed → resetting tracker`, {
+      from: this.playbackManifestUrl,
+      to: newUrl,
+    });
+
+    // Cancel in-flight work and stop polling on the old session.
+    this.stopLivePolling();
+    if (this.trackingAbortController) {
+      this.trackingAbortController.abort();
+      this.trackingAbortController = null;
+    }
+    if (this.manifestAbortController) {
+      this.manifestAbortController.abort();
+      this.manifestAbortController = null;
+    }
+
+    // Clear schedule and in-progress ad/tracking state.
+    this.adSchedule = [];
+    this.currentAdBreak = null;
+    this.currentAdPod = null;
+    this.wasPaused = false;
+    this.trackingEndpointUrl = null;
+    this.hasAttemptedTrackingFetch = false;
+    this.trackingFetchRetries = 0;
+    this.mediaPlaylistUrl = null;
+    this.lastMediaPlaylistText = null;
+
+    // Re-derive from the new source. Null streamType until the new source's
+    // metadata arrives, which also makes this handler ignore spurious
+    // loadstart events fired before re-initialization completes.
+    this.playbackManifestUrl = newUrl;
+    this.manifestFormat = detectManifestFormatFromUrl(newUrl);
+    this.streamType = null;
+    this.player.one('loadedmetadata', () => {
+      this.streamType = detectPlaybackStreamType(this.player.duration());
+      this.initializeTracking();
+    });
   }
 
   /**
