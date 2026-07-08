@@ -1359,6 +1359,17 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
+   * Public API: reversible teardown — stop polling and unregister player
+   * listeners without disposing the tracker. Unlike dispose() this does not
+   * set isDisposed, so callers can resume later by re-initializing. Idempotent.
+   * Canonical name shared with the iOS/Android trackers' stopTracking().
+   */
+  stopTracking() {
+    this.stopLivePolling();
+    this.unregisterListeners();
+  }
+
+  /**
    * Cleanup when tracker is destroyed
    */
   dispose() {
