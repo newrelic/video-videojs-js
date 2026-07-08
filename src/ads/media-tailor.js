@@ -1284,6 +1284,21 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
+   * Public API: signal a user-initiated ad skip (e.g. a "Skip Ad" button in
+   * the host app). Fires the ad-end event flagged as skipped so downstream can
+   * tell an opt-out apart from a natural completion. No-op when not currently
+   * in an ad. Mirrors the tracker's own 'adskip' player-event handling and the
+   * notifyAdSkipped API exposed by the iOS/Android MediaTailor trackers.
+   */
+  notifyAdSkipped() {
+    if (!this.isAd()) {
+      return;
+    }
+    Log.debug(`[MT - ${getTimestamp()}] notifyAdSkipped → AD_END (skipped)`);
+    this.sendEnd({ skipped: true });
+  }
+
+  /**
    * Returns ad title for New Relic
    */
   getTitle() {
