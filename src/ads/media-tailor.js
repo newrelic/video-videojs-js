@@ -1109,6 +1109,23 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         });
         this.sendAdBreakStart();
         activeAdBreak.hasFiredStart = true;
+
+        if (activeAdBreak.isNoFill) {
+          // The ad decision service returned no ad for this avail. Report why,
+          // once, at break entry.
+          this.sendAdError(
+            MT_AD_ERROR_CODE.NO_FILL,
+            'tracking-merge',
+            'MediaTailor avail returned no ads (no-fill)',
+          );
+        }
+      }
+
+      // No-fill avails fire only the break boundaries (AD_BREAK_START above and
+      // AD_BREAK_END on exit) — skip AD_START, quartiles, and AD_END so we
+      // don't record a phantom impression with zero engagement.
+      if (activeAdBreak.isNoFill) {
+        return;
       }
 
       // Check for pod-level tracking

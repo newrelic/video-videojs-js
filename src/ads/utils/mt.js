@@ -489,7 +489,36 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
   const newAds = [];
   trackingAvails.forEach((avail) => {
     const firstAd = avail.ads && avail.ads.length > 0 ? avail.ads[0] : null;
-    if (!firstAd) return;
+
+    if (!firstAd) {
+      // No-fill: the avail exists but carries no ads. Flag the break (rather
+      // than dropping it) so the state machine still fires break boundaries +
+      // AD_ERROR(NO_FILL) but suppresses AD_START/quartiles. If there's no
+      // client-side break yet, synthesize a no-fill one from the avail geometry.
+      const availStart = avail.startTimeInSeconds;
+      if (availStart == null) return;
+
+      const existing = scheduleMap.get(Math.round(availStart));
+      if (existing) {
+        existing.isNoFill = true;
+        existing.confirmedByTracking = true;
+      } else {
+        newAds.push({
+          id: avail.availId,
+          startTime: availStart,
+          duration: avail.durationInSeconds,
+          endTime: availStart + avail.durationInSeconds,
+          source: 'tracking-api',
+          confirmedByTracking: true,
+          isNoFill: true,
+          hasFiredStart: false,
+          hasFiredEnd: false,
+          hasFiredAdStart: false,
+          pods: [],
+        });
+      }
+      return;
+    }
 
     const key = Math.round(firstAd.startTimeInSeconds);
     const existingAd = scheduleMap.get(key);
