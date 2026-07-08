@@ -1119,6 +1119,16 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
             'MediaTailor avail returned no ads (no-fill)',
           );
         }
+
+        if (activeAdBreak.hadMissingAvailStart) {
+          // Tracking omitted the avail start; we fell back to the first ad's
+          // start rather than dropping the avail. Surface it once.
+          this.sendAdError(
+            MT_AD_ERROR_CODE.MISSING_AVAIL_START,
+            'tracking-merge',
+            'MediaTailor avail missing startTimeInSeconds; fell back to first ad',
+          );
+        }
       }
 
       // No-fill avails fire only the break boundaries (AD_BREAK_START above and

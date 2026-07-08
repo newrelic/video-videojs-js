@@ -544,7 +544,21 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
       return;
     }
 
-    const key = Math.round(firstAd.startTimeInSeconds);
+    // Resolve the avail start. MediaTailor occasionally omits startTimeInSeconds
+    // on the first ad; fall back to the avail-level start rather than letting a
+    // NaN key silently drop the avail, and flag the break so the state machine
+    // can surface MISSING_AVAIL_START.
+    let resolvedStart = firstAd.startTimeInSeconds;
+    let missingStart = false;
+    if (resolvedStart == null || Number.isNaN(resolvedStart)) {
+      resolvedStart = avail.startTimeInSeconds;
+      missingStart = true;
+    }
+    if (resolvedStart == null || Number.isNaN(resolvedStart)) {
+      return; // no usable start anywhere — cannot place this avail
+    }
+
+    const key = Math.round(resolvedStart);
     const existingAd = scheduleMap.get(key);
 
     if (existingAd) {
@@ -555,6 +569,9 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
       existingAd.creativeId = firstAd.adId;
       existingAd.title = firstAd.adTitle;
       existingAd.confirmedByTracking = true;
+      if (missingStart) {
+        existingAd.hadMissingAvailStart = true;
+      }
 
       // Enrich pods with tracking ad metadata
       if (avail.ads && avail.ads.length > 0 && existingAd.pods) {
@@ -587,13 +604,14 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
         id: avail.availId,
         availId: avail.availId,
         availProgramDateTime: avail.availProgramDateTime,
-        startTime: firstAd.startTimeInSeconds,
+        startTime: resolvedStart,
         duration: avail.durationInSeconds,
-        endTime: firstAd.startTimeInSeconds + avail.durationInSeconds,
+        endTime: resolvedStart + avail.durationInSeconds,
         title: firstAd.adTitle,
         creativeId: firstAd.adId,
         source: 'tracking-api',
         confirmedByTracking: true,
+        hadMissingAvailStart: missingStart,
         hasFiredStart: false,
         hasFiredEnd: false,
         hasFiredAdStart: false,
