@@ -53,14 +53,16 @@ export default class VideojsTracker extends nrvideo.VideoTracker {
       );
     }
 
-    // Merge config.ad options (segmentPrefix, trackingUrl) into the internal
-    // mediatailor object that MediaTailorAdsTracker reads.
+    // Merge config.ad options into the internal mediatailor object that
+    // MediaTailorAdsTracker reads. The tracker reads `adSegmentPrefix`, so map
+    // the documented `segmentPrefix` (accepting either name) onto it.
     if (this.adTracking === AD_TRACKING.SSAI.MT) {
       const adConfig = options?.config?.ad || {};
       this.options = Object.assign({}, this.options, {
         mediatailor: {
-          segmentPrefix: adConfig.segmentPrefix,
+          adSegmentPrefix: adConfig.adSegmentPrefix ?? adConfig.segmentPrefix,
           trackingUrl: adConfig.trackingUrl,
+          pollIntervalMs: adConfig.pollIntervalMs,
           ...this.options?.mediatailor,
         },
       });
