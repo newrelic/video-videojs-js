@@ -175,6 +175,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.hasAttemptedTrackingFetch = false;
     this.trackingFetchRetries = 0;
     this.maxTrackingRetries = 1;
+    this.nextToken = null; // MediaTailor tracking-API pagination cursor
 
     // Live polling timers
     this.manifestPollTimer = null;
@@ -909,6 +910,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         this.trackingEndpointUrl,
         TRACKING_API_TIMEOUT_MS,
         this.trackingAbortController.signal,
+        this.nextToken,
       );
 
       if (this.isDisposed) {
@@ -917,6 +919,9 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         );
         return;
       }
+
+      // Remember the pagination cursor for the next poll.
+      this.nextToken = data.nextToken || null;
 
       if (data.avails && data.avails.length > 0) {
         Log.debug(
@@ -937,6 +942,28 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         `[MT - ${getTimestamp()}] Tracking API error: ${error.message}`,
         error,
       );
+
+      // HTTP 400 means the pagination cursor expired. Drop it and retry once
+      // unpaginated; if we're already tokenless and still get 400, the session
+      // is effectively dead — surface TOKEN_EXPIRED and stop polling.
+      if (error.status === 400) {
+        if (this.nextToken) {
+          Log.debug(
+            `[MT - ${getTimestamp()}] Tracking 400 — dropping nextToken and retrying`,
+          );
+          this.nextToken = null;
+          this.isFetchingTracking = false;
+          await this.getAndProcessTrackingMetadata();
+          return;
+        }
+        this.sendAdError(
+          MT_AD_ERROR_CODE.TOKEN_EXPIRED,
+          'tracking-fetch',
+          error.message,
+        );
+        this.stopLivePolling();
+        return;
+      }
 
       if (this.trackingFetchRetries < this.maxTrackingRetries) {
         this.trackingFetchRetries++;
@@ -1308,6 +1335,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.trackingEndpointUrl = null;
     this.hasAttemptedTrackingFetch = false;
     this.trackingFetchRetries = 0;
+    this.nextToken = null;
     this.mediaPlaylistUrl = null;
     this.lastMediaPlaylistText = null;
 

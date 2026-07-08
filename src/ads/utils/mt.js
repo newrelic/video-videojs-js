@@ -762,7 +762,12 @@ export function parseDashManifestForAdBreaks(xmlText, { adSegmentPrefix } = {}) 
  * @param {number} timeout - Timeout in milliseconds
  * @param {AbortSignal} externalSignal - Optional external abort signal for cancellation
  */
-export async function getTrackingMetadata(trackingEndpointUrl, timeout = 8000, externalSignal = null) {
+export async function getTrackingMetadata(
+  trackingEndpointUrl,
+  timeout = 8000,
+  externalSignal = null,
+  nextToken = null,
+) {
   // Create AbortController for timeout support
   const controller = new AbortController();
   let didTimeout = false;
@@ -778,7 +783,14 @@ export async function getTrackingMetadata(trackingEndpointUrl, timeout = 8000, e
   }
 
   try {
-    const response = await fetch(`${trackingEndpointUrl}?t=${Date.now()}`, {
+    // Round-trip the pagination cursor as a query param (matching the iOS
+    // client). Absent/expired tokens are simply omitted.
+    let requestUrl = `${trackingEndpointUrl}?t=${Date.now()}`;
+    if (nextToken) {
+      requestUrl += `&nextToken=${encodeURIComponent(nextToken)}`;
+    }
+
+    const response = await fetch(requestUrl, {
       signal: controller.signal,
       credentials: 'include',
     });
