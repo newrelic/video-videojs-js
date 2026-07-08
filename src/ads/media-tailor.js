@@ -533,6 +533,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
       // Fetch master manifest
       const { mediaPlaylistUrl } = await fetchHlsMasterManifest(manifestUrl);
+      if (this.isDisposed) return; // disposed mid-fetch — don't touch state
 
       if (!mediaPlaylistUrl) {
         Log.debug(`[MT - ${getTimestamp()}] No media playlist found`);
@@ -543,6 +544,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
       // Fetch media playlist
       const mediaText = await fetchHlsMediaPlaylist(mediaPlaylistUrl);
+      if (this.isDisposed) return; // disposed mid-fetch — don't touch state
 
       const hlsTargetDurationSeconds = extractHlsTargetDurationSeconds(mediaText);
       this.updateLiveRefreshIntervalFromManifest(
@@ -572,6 +574,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
       // Fetch DASH manifest
       const xmlText = await fetchDashManifest(manifestUrl);
+      if (this.isDisposed) return; // disposed mid-fetch — don't touch state
 
       const dashMinimumUpdatePeriodSeconds =
         extractDashMinimumUpdatePeriodSeconds(xmlText);
@@ -823,6 +826,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         }
       } else if (this.manifestFormat === MANIFEST_TYPE.DASH) {
         await this.fetchAndParseDashManifest(this.playbackManifestUrl);
+        if (this.isDisposed) return; // disposed mid-poll — don't resume
       }
     } catch (error) {
       Log.debug(`[MT - ${getTimestamp()}] Manifest poll error:`, error);
