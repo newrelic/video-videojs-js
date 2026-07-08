@@ -117,6 +117,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.currentAdBreak = null;
     this.currentAdPod = null;
     this.hasEndedContent = false;
+    this.wasPaused = false;
 
     // Disposal and abort state
     this.isDisposed = false;
@@ -1150,6 +1151,9 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    * Handle pause events - sends AD_PAUSE only when ads are playing
    */
   onPause() {
+    if (this.isAd()) {
+      this.wasPaused = true;
+    }
     this.handleAdEvent('AD_PAUSE', this.sendPause);
   }
 
@@ -1158,8 +1162,13 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    */
   onPlaying() {
     if (this.isAd()) {
-      Log.debug(`[MT - ${getTimestamp()}] → AD_RESUME`);
-      this.sendResume();
+      // Only a genuine resume follows a pause; the first `playing` into an ad
+      // must not emit AD_RESUME (that would be AD_START's job).
+      if (this.wasPaused) {
+        Log.debug(`[MT - ${getTimestamp()}] → AD_RESUME`);
+        this.sendResume();
+        this.wasPaused = false;
+      }
       this.sendBufferEnd(); // Playing event also ends any buffering
     }
   }
