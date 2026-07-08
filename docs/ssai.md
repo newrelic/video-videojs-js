@@ -48,6 +48,8 @@ For MediaTailor streams, the tracker automatically:
 3. Parses manifests to discover ad breaks and distinguish ad segments from content segments.
 4. Sends ad break, ad start, quartile, and ad end events.
 5. Enriches ad metadata when tracking data is available.
+6. Reports failures as `AD_ERROR` events with a semantic `errorCode` (see [Error Reporting](#error-reporting)).
+7. Recovers a stitching session on `player.src()` change — clearing the old schedule and re-deriving the tracking endpoint — and refreshes the tracking pagination cursor, retrying once and reporting `TOKEN_EXPIRED` if it expires.
 
 ## Custom CDN / Custom Domain
 
@@ -65,6 +67,24 @@ const tracker = new VideojsTracker(player, {
   },
 });
 ```
+
+### Tracking URL discovery
+
+The tracker resolves the MediaTailor tracking endpoint in this order:
+
+1. An explicit `config.ad.trackingUrl`, if provided.
+2. An HLS `#EXT-X-DATERANGE CLASS="tracking"` tag (`X-ASSET-URI`) in the manifest — the spec's primary mechanism, which works on non-AWS CDNs.
+3. Derivation from the playback manifest URL.
+
+### Optional configuration
+
+All options live alongside `type` in `config.ad`:
+
+| Option | Purpose |
+| --- | --- |
+| `segmentPrefix` | Custom CDN ad-segment path when it isn't the AWS-recommended `/tm/`. |
+| `trackingUrl` | Explicit tracking endpoint; overrides discovery. |
+| `pollIntervalMs` | Overrides the live poll cadence (clamped to 100–5000 ms). Omit to follow the manifest-derived interval. |
 
 ## Supported MediaTailor Scenarios
 
@@ -94,9 +114,29 @@ Customers should expect the tracker to report:
 - ad start and ad end events
 - ad quartiles
 - ad metadata such as title and creative id when available
+- `adPrimaryId` — stable creative identity (VAST `creativeId`, falling back to `availId:adId`) on `AD_START`, `AD_END`, and `AD_QUARTILE`, so `count(DISTINCT adPrimaryId)` counts true creatives rather than per-avail ad IDs
 - `adPartner = aws-mediatailor` for MediaTailor ad events
+- `AD_ERROR` events with an `errorCode` when a failure occurs (see [Error Reporting](#error-reporting))
 
 Some metadata can arrive after playback has already started if it is filled in from the MediaTailor tracking endpoint.
+
+## Error Reporting
+
+Non-terminal MediaTailor failures surface as `AD_ERROR` events carrying `errorCode`, `errorSource`, and `errorMessage`:
+
+| `errorCode` | Meaning |
+| --- | --- |
+| `NO_FILL` | An avail returned no ads; break boundaries still fire but `AD_START`/quartiles are suppressed. |
+| `ADS_TIMEOUT` | The tracking fetch timed out. |
+| `TRACKING_FETCH_FAILED` | A non-timeout tracking fetch failure after retry. |
+| `TOKEN_EXPIRED` | The tracking pagination token expired (HTTP 400) and the tokenless retry also failed; polling stops. |
+| `MISSING_AVAIL_START` | An avail was missing its start time; the tracker recovered using the first ad's start. |
+| `MANIFEST_TRACKING_MISMATCH` | Manifest pod count disagreed with the tracking ad count; manifest geometry was kept. |
+
+## Public Methods
+
+- `tracker.notifyAdSkipped()` — report a user-initiated ad skip (e.g. a "Skip Ad" button); no-op when not currently in an ad.
+- `tracker.stopTracking()` — stop polling and unregister player listeners without disposing the tracker, so it can be re-initialized later.
 
 ## Common Integration Requirements
 
