@@ -204,26 +204,48 @@ export function isValidAdBreak(adBreak) {
 }
 
 /**
- * Merges new ads into existing schedule (deduplicates by start time)
+ * Computes a stable dedup identity for an ad break. Prefers MediaTailor's
+ * stable identity (availId + availProgramDateTime for live, availId + start
+ * for VOD) so a break survives live sliding-window re-merges where start times
+ * jitter by a few hundred ms. Falls back to rounded start time for breaks with
+ * no tracking identity yet.
+ */
+export function computeDedupKey(ad) {
+  if (ad.availId && ad.availProgramDateTime) {
+    return `${ad.availId}|${ad.availProgramDateTime}`;
+  }
+  if (ad.availId) {
+    return `${ad.availId}|${Math.round(ad.startTime * 1000)}`;
+  }
+  return `${Math.round(ad.startTime)}`;
+}
+
+/**
+ * Merges new ads into existing schedule, deduplicating by stable identity.
  */
 export function mergeAdSchedules(existingSchedule, newAds) {
   const scheduleMap = new Map();
 
-  // Add existing ads to map (keyed by rounded start time)
-  existingSchedule.forEach((ad) => {
-    const key = Math.round(ad.startTime);
-    scheduleMap.set(key, ad);
-  });
+  // Index existing ads by stable identity AND by rounded time. The time index
+  // lets a raw manifest re-parse (which has no availId yet) still match a break
+  // that tracking has already enriched, avoiding a duplicate; the identity
+  // index keeps two breaks that round to the same second distinct.
+  const indexAd = (ad) => {
+    scheduleMap.set(computeDedupKey(ad), ad);
+    scheduleMap.set(`t|${Math.round(ad.startTime)}`, ad);
+  };
+  existingSchedule.forEach(indexAd);
 
   // Merge new ads
   const merged = [];
   newAds.forEach((newAd) => {
-    const key = Math.round(newAd.startTime);
-    const existingAd = scheduleMap.get(key);
+    const existingAd =
+      scheduleMap.get(computeDedupKey(newAd)) ||
+      scheduleMap.get(`t|${Math.round(newAd.startTime)}`);
 
     if (!existingAd) {
       merged.push(newAd);
-      scheduleMap.set(key, newAd);
+      indexAd(newAd);
     } else if (!existingAd.confirmedByTracking && newAd.confirmedByTracking) {
       Object.assign(existingAd, newAd);
     }
@@ -505,6 +527,8 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
       } else {
         newAds.push({
           id: avail.availId,
+          availId: avail.availId,
+          availProgramDateTime: avail.availProgramDateTime,
           startTime: availStart,
           duration: avail.durationInSeconds,
           endTime: availStart + avail.durationInSeconds,
@@ -526,6 +550,8 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
     if (existingAd) {
       // Enrich existing ad with tracking metadata
       existingAd.id = avail.availId;
+      existingAd.availId = avail.availId;
+      existingAd.availProgramDateTime = avail.availProgramDateTime;
       existingAd.creativeId = firstAd.adId;
       existingAd.title = firstAd.adTitle;
       existingAd.confirmedByTracking = true;
@@ -559,6 +585,8 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
       // Add new ad from tracking
       newAds.push({
         id: avail.availId,
+        availId: avail.availId,
+        availProgramDateTime: avail.availProgramDateTime,
         startTime: firstAd.startTimeInSeconds,
         duration: avail.durationInSeconds,
         endTime: firstAd.startTimeInSeconds + avail.durationInSeconds,
