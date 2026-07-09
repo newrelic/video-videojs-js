@@ -10,6 +10,7 @@ import {
   STREAM_TYPE,
   MANIFEST_TYPE,
   MT_AD_ERROR_CODE,
+  REGEX_TRACKING_PATH_SEGMENT,
 } from './utils/mt-constants.js';
 import {
   getTimestamp,
@@ -214,18 +215,32 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       `[MT - ${getTimestamp()}] Initializing ${this.manifestFormat.toUpperCase()} ${this.streamType.toUpperCase()} tracking`,
     );
 
-    // Prefer explicit tracking URL (explicit POST session) over derived one
-    this.trackingEndpointUrl =
-      this.explicitTrackingUrl ||
-      buildTrackingEndpointUrl(this.playbackManifestUrl);
+    // Resolve the tracking endpoint and log HOW it was detected, so a stream
+    // that surfaces no ads can be diagnosed from the log alone (wrong URL vs.
+    // implicit/server-side session vs. explicit override).
+    let detectionSource = null;
+    if (this.explicitTrackingUrl) {
+      this.trackingEndpointUrl = this.explicitTrackingUrl;
+      detectionSource = 'explicit mediatailor.trackingUrl option';
+    } else {
+      this.trackingEndpointUrl = buildTrackingEndpointUrl(this.playbackManifestUrl);
+      if (this.trackingEndpointUrl) {
+        detectionSource =
+          'derived from playback URL (sessionId query param — explicit session)';
+      }
+    }
+
     if (this.trackingEndpointUrl) {
       Log.debug(
-        `[MT - ${getTimestamp()}] Tracking URL extracted:`,
-        this.trackingEndpointUrl,
+        `[MT - ${getTimestamp()}] Tracking detection: ${detectionSource} → ${this.trackingEndpointUrl}`,
+      );
+    } else if (!REGEX_TRACKING_PATH_SEGMENT.test(this.playbackManifestUrl || '')) {
+      Log.warn(
+        `[MT - ${getTimestamp()}] Tracking detection: playback URL is not a MediaTailor format (${this.playbackManifestUrl}) — MediaTailor tracking disabled`,
       );
     } else {
       Log.warn(
-        `[MT - ${getTimestamp()}] Could not derive tracking URL from playback URL — pass trackingUrl in mediatailor options if needed`,
+        `[MT - ${getTimestamp()}] Tracking detection: MediaTailor URL without sessionId query param (implicit session / server-side reporting mode) — tracking URL not derivable from URL alone; falling back to manifest-marker detection`,
       );
     }
 
