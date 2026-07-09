@@ -17,6 +17,7 @@ import {
   detectManifestFormatFromUrl,
   detectPlaybackStreamType,
   buildTrackingEndpointUrl,
+  buildTrackingEndpointUrlFromMediaPlaylist,
   determineAdPosition,
   getQuartilesToFire,
   findActiveAdBreak,
@@ -571,6 +572,24 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       if (!mediaPlaylistUrl) {
         Log.debug(`[MT - ${getTimestamp()}] No media playlist found`);
         return;
+      }
+
+      // Implicit-session fallback: the master URL had no ?aws.sessionId= query,
+      // so buildTrackingEndpointUrl() couldn't derive an endpoint. The child
+      // media-playlist path DOES carry the sessionId — derive from it so
+      // implicit / server-side sessions get Tier-1 tracking too. DATERANGE
+      // (below) still overrides if the manifest publishes its own tracking URL.
+      // ponytail: repo has no test infra; derivation verified against live
+      // session URLs (0039eed8…, cf560510…) via buildTrackingEndpointUrlFromMediaPlaylist.
+      if (!this.explicitTrackingUrl && !this.trackingEndpointUrl) {
+        const pathTrackingUrl =
+          buildTrackingEndpointUrlFromMediaPlaylist(mediaPlaylistUrl);
+        if (pathTrackingUrl) {
+          Log.debug(
+            `[MT - ${getTimestamp()}] Tracking detection: derived from media-playlist session path (implicit session) → ${pathTrackingUrl}`,
+          );
+          this.trackingEndpointUrl = pathTrackingUrl;
+        }
       }
 
       Log.debug(`[MT - ${getTimestamp()}] Fetching media playlist`);

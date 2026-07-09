@@ -21,6 +21,7 @@ import {
   REGEX_ISO_8601_DURATION,
   REGEX_MAP,
   REGEX_MANIFEST_FILE_SUFFIX,
+  REGEX_MEDIA_SESSION_PATH,
   REGEX_SESSION_ID,
   REGEX_TRACKING_PATH_SEGMENT,
   MT_HLS_CUE_IN_TAG,
@@ -85,6 +86,27 @@ export function buildTrackingEndpointUrl(manifestUrl) {
     .replace(REGEX_MANIFEST_FILE_SUFFIX, `/${sessionId}`);
 
   return trackingEndpointUrl;
+}
+
+/**
+ * Builds a tracking endpoint URL from a sessionized MEDIA-PLAYLIST URL.
+ *
+ * Implicit MediaTailor sessions (GET /v1/master/...) carry no ?aws.sessionId=
+ * query param, so buildTrackingEndpointUrl() returns null for them. The sessionId
+ * only appears in the child media-playlist path:
+ *   {base}/v1/manifest/{config}/{origin}/{sessionId}/{variant}.m3u8
+ * which this rewrites to the tracking endpoint:
+ *   {base}/v1/tracking/{config}/{origin}/{sessionId}
+ * Returns null if the URL is not a sessionized media-playlist path.
+ */
+export function buildTrackingEndpointUrlFromMediaPlaylist(mediaPlaylistUrl) {
+  if (!mediaPlaylistUrl) return null;
+
+  const match = mediaPlaylistUrl.match(REGEX_MEDIA_SESSION_PATH);
+  if (!match) return null;
+
+  const [, base, config, origin, sessionId] = match;
+  return `${base}/v1/tracking/${config}/${origin}/${sessionId}`;
 }
 
 /**
