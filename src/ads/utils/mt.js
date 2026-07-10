@@ -637,6 +637,33 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
             existingAd.pods[adIndex].trackingStartTime = trackingAd.startTimeInSeconds;
             existingAd.pods[adIndex].trackingDuration = trackingAd.durationInSeconds;
           });
+        } else if (
+          trackingAdCount > manifestPodCount &&
+          existingAd.source === AD_SOURCE.TRACKING_API
+        ) {
+          // Live avails populate incrementally: a tracking-created break can
+          // start with 1 ad and gain more as the break approaches/plays. Append
+          // the newly-reported ads (keyed by adId) as pods, preserving pods
+          // already being tracked and their fired flags, so every ad in the pod
+          // gets AD_START / quartiles / AD_END (findActivePod picks them up on
+          // the next tick). Without this the break stays stuck at its first-seen
+          // pod count and only the first ad is tracked.
+          const knownAdIds = new Set(existingAd.pods.map((p) => p.adId));
+          avail.ads.forEach((trackingAd) => {
+            if (knownAdIds.has(trackingAd.adId)) return;
+            existingAd.pods.push({
+              startTime: trackingAd.startTimeInSeconds,
+              duration: trackingAd.durationInSeconds,
+              endTime: trackingAd.startTimeInSeconds + trackingAd.durationInSeconds,
+              title: trackingAd.adTitle,
+              adId: trackingAd.adId,
+              creativeId: trackingAd.creativeId || null,
+              hasFiredStart: false,
+              hasFiredQ1: false,
+              hasFiredQ2: false,
+              hasFiredQ3: false,
+            });
+          });
         } else {
           existingAd.podCountMismatch = true;
           existingAd.pods.forEach((pod) => {

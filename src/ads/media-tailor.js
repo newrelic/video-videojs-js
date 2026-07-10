@@ -11,6 +11,7 @@ import {
   MANIFEST_TYPE,
   MT_AD_ERROR_CODE,
   REGEX_TRACKING_PATH_SEGMENT,
+  PRUNE_BUFFER_SECONDS,
 } from './utils/mt-constants.js';
 import {
   getTimestamp,
@@ -178,7 +179,6 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.hasAttemptedTrackingFetch = false;
     this.trackingFetchRetries = 0;
     this.maxTrackingRetries = 1;
-    this.nextToken = null; // MediaTailor tracking-API pagination cursor
 
     // Live polling timers
     this.manifestPollTimer = null;
@@ -240,8 +240,12 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         `[MT - ${getTimestamp()}] Tracking detection: playback URL is not a MediaTailor format (${this.playbackManifestUrl}) — MediaTailor tracking disabled`,
       );
     } else {
-      Log.warn(
-        `[MT - ${getTimestamp()}] Tracking detection: MediaTailor URL without sessionId query param (implicit session / server-side reporting mode) — tracking URL not derivable from URL alone; falling back to manifest-marker detection`,
+      // Normal implicit-session path (not an error): the master/playback URL has
+      // no ?aws.sessionId=, so the tracking URL is derived once the child
+      // media-playlist (HLS) or sessionized .mpd (DASH) loads via the tech hook —
+      // see maybeDeriveTrackingFromMediaPlaylist.
+      Log.debug(
+        `[MT - ${getTimestamp()}] Tracking detection: MediaTailor URL without sessionId query param (implicit session) — will derive the tracking URL from the media playlist once loaded`,
       );
     }
 
@@ -441,6 +445,12 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
     // Parse already-loaded playlist
     const currentPlaylist = tech.vhs.playlists.media();
+    // The VHS media-playlist resolvedUri carries the implicit-session sessionId
+    // in its path — derive the Tier-1 tracking endpoint from it (live path never
+    // hits fetchAndParseHlsManifest, so this is where live sessions engage it).
+    this.maybeDeriveTrackingFromMediaPlaylist(
+      currentPlaylist && (currentPlaylist.resolvedUri || currentPlaylist.uri),
+    );
     if (
       currentPlaylist &&
       currentPlaylist.segments &&
@@ -454,6 +464,9 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     tech.vhs.on('loadedplaylist', () => {
       const playlist = tech.vhs.playlists.media();
       if (playlist) {
+        this.maybeDeriveTrackingFromMediaPlaylist(
+          playlist.resolvedUri || playlist.uri,
+        );
         this.parseVhsPlaylistForAdBreaks(playlist);
       }
     });
@@ -516,6 +529,13 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     if (!tech.shakaPlayer) return false;
 
     Log.debug(`[MT - ${getTimestamp()}] Hooked: Shaka Player`);
+    // Implicit-session DASH derivation (analogue of the HLS VHS path). Shaka's
+    // resolved manifest URI carries the sessionId in the path for implicit
+    // sessions; fall back to the playback .mpd URL when the getter is absent.
+    this.maybeDeriveTrackingFromDashManifest(
+      (tech.shakaPlayer.getAssetUri && tech.shakaPlayer.getAssetUri()) ||
+        this.playbackManifestUrl,
+    );
     tech.shakaPlayer.addEventListener('emsg', (event) => {
       this.handleDASHEmsgEvent(event);
     });
@@ -530,6 +550,15 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     if (!tech.dash || !tech.dash.on) return false;
 
     Log.debug(`[MT - ${getTimestamp()}] Hooked: dash.js`);
+    // Implicit-session DASH derivation (analogue of the HLS VHS path). dash.js
+    // exposes the resolved source via getSource(); fall back to the playback
+    // .mpd URL when unavailable.
+    this.maybeDeriveTrackingFromDashManifest(
+      (tech.dash.mediaPlayer &&
+        tech.dash.mediaPlayer.getSource &&
+        tech.dash.mediaPlayer.getSource()) ||
+        this.playbackManifestUrl,
+    );
     tech.dash.on('EVENT_MODE_ON_RECEIVE', (event) => {
       this.handleDASHEventStream(event);
     });
@@ -559,6 +588,55 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
+   * Derives the MediaTailor tracking endpoint from a sessionized MEDIA-PLAYLIST
+   * URL and captures the session id. Implicit sessions (GET /v1/master/...) carry
+   * the sessionId only in the child media-playlist path, so this is how live /
+   * server-side sessions obtain a tracking URL (and thus Tier-1 ad detection).
+   * No-op if an explicit or already-derived tracking URL exists. Logs the id.
+   * ponytail: repo has no test infra; derivation verified against live session
+   * URLs (0039eed8…, cf560510…) via buildTrackingEndpointUrlFromMediaPlaylist.
+   */
+  maybeDeriveTrackingFromMediaPlaylist(mediaPlaylistUrl) {
+    if (this.explicitTrackingUrl || this.trackingEndpointUrl || !mediaPlaylistUrl) {
+      return;
+    }
+    const trackingUrl = buildTrackingEndpointUrlFromMediaPlaylist(mediaPlaylistUrl);
+    if (!trackingUrl) return;
+
+    this.trackingEndpointUrl = trackingUrl;
+    Log.debug(
+      `[MT - ${getTimestamp()}] Tracking detection: derived from media-playlist session path (implicit session) → ${trackingUrl}`,
+    );
+  }
+
+  /**
+   * DASH analogue of maybeDeriveTrackingFromMediaPlaylist. MediaTailor DASH
+   * implicit sessions carry the sessionId in the path of the sessionized .mpd
+   * (/v1/dash/{config}/{origin}/{sessionId}/...), the same positional shape as
+   * the HLS /v1/manifest/ path — so it reuses buildTrackingEndpointUrlFromMediaPlaylist
+   * (regex now matches both). When the DASH URL is NOT a sessionized path the
+   * tracking URL cannot be derived from the URL alone; log that clearly and do
+   * nothing rather than risk mis-routing to a wrong endpoint.
+   * No-op if an explicit or already-derived tracking URL exists.
+   */
+  maybeDeriveTrackingFromDashManifest(dashManifestUrl) {
+    if (this.explicitTrackingUrl || this.trackingEndpointUrl) {
+      return;
+    }
+    const trackingUrl = buildTrackingEndpointUrlFromMediaPlaylist(dashManifestUrl);
+    if (!trackingUrl) {
+      Log.debug(
+        `[MT - ${getTimestamp()}] Tracking detection: DASH URL is not a sessionized /v1/dash/ path (${dashManifestUrl || 'none'}) — tracking URL not derivable from URL alone; relying on manifest-marker detection`,
+      );
+      return;
+    }
+    this.trackingEndpointUrl = trackingUrl;
+    Log.debug(
+      `[MT - ${getTimestamp()}] Tracking detection: derived from DASH session path (implicit session) → ${trackingUrl}`,
+    );
+  }
+
+  /**
    * Fetches and parses HLS master + media manifest
    */
   async fetchAndParseHlsManifest(manifestUrl) {
@@ -574,23 +652,11 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         return;
       }
 
-      // Implicit-session fallback: the master URL had no ?aws.sessionId= query,
-      // so buildTrackingEndpointUrl() couldn't derive an endpoint. The child
-      // media-playlist path DOES carry the sessionId — derive from it so
-      // implicit / server-side sessions get Tier-1 tracking too. DATERANGE
-      // (below) still overrides if the manifest publishes its own tracking URL.
-      // ponytail: repo has no test infra; derivation verified against live
-      // session URLs (0039eed8…, cf560510…) via buildTrackingEndpointUrlFromMediaPlaylist.
-      if (!this.explicitTrackingUrl && !this.trackingEndpointUrl) {
-        const pathTrackingUrl =
-          buildTrackingEndpointUrlFromMediaPlaylist(mediaPlaylistUrl);
-        if (pathTrackingUrl) {
-          Log.debug(
-            `[MT - ${getTimestamp()}] Tracking detection: derived from media-playlist session path (implicit session) → ${pathTrackingUrl}`,
-          );
-          this.trackingEndpointUrl = pathTrackingUrl;
-        }
-      }
+      // Implicit-session derivation: the master URL had no ?aws.sessionId=
+      // query, but the child media-playlist path carries the sessionId. Derive
+      // the tracking endpoint from it so implicit / server-side sessions get
+      // Tier-1 tracking. DATERANGE (below) still overrides if published.
+      this.maybeDeriveTrackingFromMediaPlaylist(mediaPlaylistUrl);
 
       Log.debug(`[MT - ${getTimestamp()}] Fetching media playlist`);
 
@@ -924,6 +990,30 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
+   * Prunes ad breaks whose window is safely behind the playhead so the schedule
+   * (and the per-tick O(n) findActiveAdBreak/findActivePod scans) stays bounded
+   * on 24/7 live. Keeps a break if it ended within PRUNE_BUFFER_SECONDS (so a
+   * late quartile/AD_END can still resolve) OR it is the currently-active break.
+   * Upcoming breaks (endTime in the future) are kept trivially by the predicate.
+   */
+  pruneStaleAdBreaks(currentTime) {
+    if (this.adSchedule.length === 0) return;
+
+    const cutoff = currentTime - PRUNE_BUFFER_SECONDS;
+    const before = this.adSchedule.length;
+    this.adSchedule = this.adSchedule.filter(
+      (ad) => ad === this.currentAdBreak || ad.endTime >= cutoff,
+    );
+
+    const removed = before - this.adSchedule.length;
+    if (removed > 0) {
+      Log.debug(
+        `[MT - ${getTimestamp()}] Pruned ${removed} stale ad break(s) (schedule now ${this.adSchedule.length})`,
+      );
+    }
+  }
+
+  /**
    * Updates live polling cadence from manifest-derived metadata
    */
   updateLiveRefreshIntervalFromManifest(intervalSeconds, source) {
@@ -969,11 +1059,17 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
       this.trackingAbortController = new AbortController();
 
+      // A single tokenless GET returns the COMPLETE current avail window — every
+      // avail, each with all of its ads. MediaTailor's nextToken is idempotent
+      // here: following it just re-returns the same avails. Paging therefore
+      // pushed duplicate copies of the same avail, which made enrichment create
+      // duplicate ad breaks — findActiveAdBreak tracked the first (stuck at 1
+      // pod) while the pod-growth append only grew the last, so pods #2/#3 were
+      // never tracked. One tokenless request, no paging.
       const data = await getTrackingMetadata(
         this.trackingEndpointUrl,
         TRACKING_API_TIMEOUT_MS,
         this.trackingAbortController.signal,
-        this.nextToken,
       );
 
       if (this.isDisposed) {
@@ -982,9 +1078,6 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         );
         return;
       }
-
-      // Remember the pagination cursor for the next poll.
-      this.nextToken = data.nextToken || null;
 
       if (data.avails && data.avails.length > 0) {
         Log.debug(
@@ -1006,19 +1099,10 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         error,
       );
 
-      // HTTP 400 means the pagination cursor expired. Drop it and retry once
-      // unpaginated; if we're already tokenless and still get 400, the session
-      // is effectively dead — surface TOKEN_EXPIRED and stop polling.
+      // HTTP 400 on a tokenless request means the session itself is effectively
+      // dead (we no longer page across cycles, so an expired cursor can't cause
+      // this) — surface TOKEN_EXPIRED and stop polling.
       if (error.status === 400) {
-        if (this.nextToken) {
-          Log.debug(
-            `[MT - ${getTimestamp()}] Tracking 400 — dropping nextToken and retrying`,
-          );
-          this.nextToken = null;
-          this.isFetchingTracking = false;
-          await this.getAndProcessTrackingMetadata();
-          return;
-        }
         this.sendAdError(
           MT_AD_ERROR_CODE.TOKEN_EXPIRED,
           'tracking-fetch',
@@ -1125,6 +1209,18 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     const currentTime = this.player.currentTime();
     const activeAdBreak = findActiveAdBreak(this.adSchedule, currentTime);
 
+    // Bound the schedule on long live: prune viewed avails, but only when NOT
+    // inside a break (so we never touch a break being tracked) and at most once
+    // per PRUNE_BUFFER_SECONDS of playhead (not every tick).
+    if (
+      !activeAdBreak &&
+      (this._lastPruneTime == null ||
+        currentTime - this._lastPruneTime >= PRUNE_BUFFER_SECONDS)
+    ) {
+      this.pruneStaleAdBreaks(currentTime);
+      this._lastPruneTime = currentTime;
+    }
+
     // Debug logging (only log when schedule exists and every 5 seconds)
     if (
       this.adSchedule.length > 0 &&
@@ -1213,6 +1309,24 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
       // Check for pod-level tracking
       if (activeAdBreak.pods && activeAdBreak.pods.length > 0) {
+        // Late-append catch-up (#3): a pod the tracking API appended AFTER the
+        // playhead already passed its endTime is silently un-tracked —
+        // findActivePod never selects it and it never fires. Don't fabricate
+        // AD_START/quartiles (that would be phantom engagement); instead flag it
+        // once and log so the under-count is visible, not invisible.
+        activeAdBreak.pods.forEach((pod) => {
+          if (
+            !pod.hasFiredStart &&
+            !pod.missedByLateAppend &&
+            pod.endTime < currentTime
+          ) {
+            pod.missedByLateAppend = true;
+            Log.debug(
+              `[MT - ${getTimestamp()}] Pod appended past playhead — not tracked (avail=${activeAdBreak.availId || activeAdBreak.id}, adId=${pod.adId}, pod ${pod.startTime}-${pod.endTime}s, now ${currentTime.toFixed(2)}s)`,
+            );
+          }
+        });
+
         const activePod = findActivePod(activeAdBreak, currentTime);
 
         if (activePod) {
@@ -1437,7 +1551,6 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.trackingEndpointUrl = null;
     this.hasAttemptedTrackingFetch = false;
     this.trackingFetchRetries = 0;
-    this.nextToken = null;
     this.mediaPlaylistUrl = null;
     this.lastMediaPlaylistText = null;
 
