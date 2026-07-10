@@ -63,7 +63,18 @@ src/
 
 ## Testing
 
-Test your changes using the sample HTML files:
+Unit tests run on [Jest](https://jestjs.io/) in a jsdom environment.
+
+```shell
+$ npm test           # run all specs with coverage
+$ npx jest tracker   # run a single spec by name
+```
+
+- Specs live in `test/` as `*.spec.js`.
+- `@newrelic/video-core` is mocked at the boundary via `__mocks__/@newrelic/video-core.js` (auto-applied by Jest). Test the videojs layer; trust core. Add a symbol to that mock only when a spec needs it.
+- Tests run automatically on every commit via the husky `pre-commit` hook (installed on `npm install`).
+
+For manual/integration checks, use the sample HTML files:
 
 - `samples/hls.html` - Basic HLS streaming example
 - `samples/ima.html` - IMA ads integration example
