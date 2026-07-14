@@ -119,6 +119,14 @@ jobs:
           gh workflow run use-shared-publish.yml --ref master
           echo "Triggered use-shared-publish.yml"
 
+      - name: Trigger Release Notes Docs PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${{ needs.check-release.outputs.version }}"
+          gh workflow run release-notes-docs-pr.yml --ref master --field tag="v$VERSION" --field dry_run=false
+          echo "Triggered release-notes-docs-pr.yml for v$VERSION"
+
       - name: Summary
         run: |
           VERSION="${{ needs.check-release.outputs.version }}"
