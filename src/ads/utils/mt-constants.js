@@ -18,6 +18,7 @@ export const REGEX_MAP = /#EXT-X-MAP:URI="([^"]+)"/; // Captures the MAP URI fro
 export const REGEX_SESSION_ID = /sessionId=([^&]+)/; // Captures the session id from a sessionized playback URL query string such as ?aws.sessionId=abc123 so we can construct the MediaTailor tracking endpoint
 export const REGEX_TRACKING_PATH_SEGMENT = /\/v1\/(master|session|dash)\//; // Matches the playback path prefix in URLs like /v1/master/... or /v1/dash/... so it can be rewritten to /v1/tracking/...
 export const REGEX_MANIFEST_FILE_SUFFIX = /\/[^/]*\.(m3u8|mpd).*$/; // Matches the trailing manifest filename and any query string, such as /master.m3u8?... or /index.mpd?..., so it can be replaced with /{sessionId}
+export const REGEX_MEDIA_SESSION_PATH = /^(.*?)\/v1\/(?:manifest|dash)\/([^/]+)\/([^/]+)\/([^/]+)\/[^/]+\.(?:m3u8|mpd)/; // Captures {base}/v1/(manifest|dash)/{config}/{origin}/{sessionId}/ from an IMPLICIT-session child media-playlist (HLS) or sessionized .mpd (DASH) URL — sessionId is any single path segment (no longer UUID-shaped), but the trailing /{variant}.(m3u8|mpd) is still required so a top-level manifest filename can't be mistaken for a sessionId. Rewritten to the /v1/tracking/ endpoint.
 export const REGEX_HLS_TARGET_DURATION = /#EXT-X-TARGETDURATION:(\d+)/; // Captures the HLS target duration value from a line like #EXT-X-TARGETDURATION:6, which we use as the live polling cadence when available
 export const REGEX_DASH_MINIMUM_UPDATE_PERIOD = /minimumUpdatePeriod="([^"]+)"/; // Captures the DASH MPD minimumUpdatePeriod attribute, for example minimumUpdatePeriod="PT5S", so live polling follows the manifest's declared refresh rate
 export const REGEX_ISO_8601_DURATION = /PT(?:(\d+)H)?(?:(\d+)M)?(?:([\d.]+)S)?/; // Parses ISO 8601 duration values like PT5S, PT1M14S, or PT1H2M3.5S into hour, minute, and second groups for DASH timing calculations
@@ -44,6 +45,7 @@ export const DEFAULT_LIVE_POLL_INTERVAL_MS = 5000; // Temporary fallback until m
 // Timing Thresholds
 export const MIN_AD_DURATION = 0.5; // Minimum ad duration in seconds (filter false positives)
 export const AD_TIMING_TOLERANCE = 0.5; // Tolerance for matching ad times in seconds
+export const PRUNE_BUFFER_SECONDS = 30; // Keep recently-ended ad breaks this long past their endTime before pruning, so a late quartile/AD_END can still resolve on 24/7 live
 export const POST_AD_PAUSE_THRESHOLD = 500; // Ignore pause events within 500ms after ad break (avoids false CONTENT_PAUSE)
 
 // Stream Types
@@ -80,4 +82,17 @@ export const QUARTILES = {
   Q1: 0.25, // 25% progress
   Q2: 0.5, // 50% progress
   Q3: 0.75, // 75% progress
+};
+
+// AD_ERROR taxonomy — semantic errorCode attribute values emitted on
+// non-terminal MediaTailor failures. Wire format matches the other trackers
+// exactly, so operators see consistent codes across platforms in NRDB.
+export const MT_AD_ERROR_CODE = {
+  NO_FILL: 'NO_FILL', // tracking returned an avail with ads: []
+  ADS_TIMEOUT: 'ADS_TIMEOUT', // tracking fetch timed out
+  TRACKING_FETCH_FAILED: 'TRACKING_FETCH_FAILED', // non-timeout, non-400 fetch failure after retry
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED', // HTTP 400; reset-and-retry also failed
+  MISSING_AVAIL_START: 'MISSING_AVAIL_START', // avail has ads but no startTimeInSeconds
+  MANIFEST_PARSE_FAILED: 'MANIFEST_PARSE_FAILED', // manifest bytes unparseable
+  MANIFEST_TRACKING_MISMATCH: 'MANIFEST_TRACKING_MISMATCH', // pod count vs ad count disagreement
 };

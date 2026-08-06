@@ -1,3 +1,35 @@
+## [Unreleased]
+
+### Features
+
+- **Ad error taxonomy:** The MediaTailor tracker now emits `AD_ERROR` with a semantic `errorCode` (plus `errorSource` and `errorMessage`) for non-terminal failures, so problems are visible in NRDB instead of only the debug log. Codes: `NO_FILL`, `ADS_TIMEOUT`, `TRACKING_FETCH_FAILED`, `TOKEN_EXPIRED`, `MISSING_AVAIL_START`, `MANIFEST_TRACKING_MISMATCH` (and a reserved `MANIFEST_PARSE_FAILED`).
+- **`notifyAdSkipped()` public API:** Host apps with their own "skip ad" UI can report a user-initiated skip; emits the skipped ad-end when in an ad, and is a no-op otherwise.
+- **`stopTracking()` public API:** Reversible teardown — stops polling and unregisters player listeners without disposing the tracker, so it can be resumed. Shares the method name used by the iOS/Android trackers.
+- **Configurable poll cadence (`pollIntervalMs`):** Battery- or CPU-constrained clients can override the manifest-derived live poll interval via `config.ad.pollIntervalMs` (clamped to 100–5000 ms; unchanged behavior when omitted).
+- **Manifest-published tracking URL:** The tracker reads a tracking endpoint from an HLS `#EXT-X-DATERANGE CLASS="tracking"` tag (`X-ASSET-URI`) when present — the spec's primary discovery mechanism — so non-AWS-CDN setups no longer require an explicit `trackingUrl`. An explicit `trackingUrl` still takes precedence.
+- **Stable creative identity (`adPrimaryId`):** `AD_START`, `AD_END`, and `AD_QUARTILE` now carry an `adPrimaryId` attribute (the VAST `creativeId`, falling back to `availId:adId`) so `count(DISTINCT adPrimaryId)` reflects true creatives rather than per-avail ad IDs.
+- **Source-change reset:** The tracker reacts to `player.src()` swaps — clearing the stale schedule, cancelling in-flight fetches, re-deriving the tracking endpoint, and re-initializing — instead of continuing to poll the previous session's endpoint.
+
+### Bug Fixes
+
+- **Quartile flags on CUE-parsed HLS breaks:** Ad breaks discovered from `#EXT-X-CUE-OUT` now initialize `hasFiredQ1/Q2/Q3`, so quartile events fire exactly once per ad regardless of parse path.
+- **DASH EventStream timing:** `presentationTime`/`duration` from the dash.js path are converted from timescale ticks to seconds, so ads land at the correct offsets.
+- **Balanced events on dispose:** Disposing mid-ad now emits the outstanding `AD_END`/`AD_BREAK_END` before teardown, closing the break instead of leaving it dangling.
+- **`AD_RESUME` accuracy:** `AD_RESUME` only fires after a genuine pause, not on first play into an ad.
+- **Pod-end completion:** `AD_END` fires when the playhead leaves a pod while still inside the break (segment-rounding dead-zone), and pod ends are clamped to the break end.
+- **Expired tracking token:** The `nextToken` pagination cursor is round-tripped; on HTTP 400 it is dropped and retried once, and a persistent 400 emits `TOKEN_EXPIRED` and stops polling.
+- **No-fill avails:** Avails with no ads fire only the break boundaries plus `AD_ERROR(NO_FILL)` — no phantom `AD_START`/quartiles.
+- **Stable live dedup:** Ad breaks dedupe by stable identity (`availId` + `availProgramDateTime`) so live sliding-window re-merges no longer duplicate or drop breaks.
+- **Missing avail start:** Avails missing `startTimeInSeconds` fall back to the first ad's start (emitting `MISSING_AVAIL_START`) instead of being silently dropped.
+- **Pod-count mismatch:** When manifest pod count and tracking ad count disagree, manifest geometry is kept, pods are matched by closest time, and `MANIFEST_TRACKING_MISMATCH` is emitted.
+- **DASH multi-period classification:** A period is treated as an ad only when every Representation resolves to an ad-marked `BaseURL`, preventing a single shared-CDN representation from misclassifying a content period.
+- **Post-await dispose safety:** Manifest and media-playlist fetches re-check `isDisposed` after each `await` before mutating state.
+- **Config option plumbing:** `config.ad.segmentPrefix` now actually reaches the tracker (it was mapped to the wrong internal key), and `pollIntervalMs` is forwarded through the same `config.ad` surface.
+
+### Documentation
+
+- **README & SSAI docs:** Documented the new ad-error events, `adPrimaryId`, `notifyAdSkipped()`/`stopTracking()`, `pollIntervalMs`, DATERANGE tracking-URL discovery, and token-expiry handling; corrected overstated race-safety wording in the tracker source.
+
 ## [4.2.1](https://github.com/newrelic/video-videojs-js/compare/v4.2.0...v4.2.1) (2026-06-18)
 
 ### Features
