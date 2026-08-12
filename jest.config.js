@@ -1,5 +1,10 @@
 module.exports = {
-  testEnvironment: "jsdom",       // videojs/DOM code under test
-  watchman: false,                // sandbox blocks watchman
-  collectCoverageFrom: ["src/**/*.js"],
+  testEnvironment: "jsdom",
+  watchman: false,
+  transform: { '^.+\\.jsx?$': 'babel-jest' },
+  testMatch: ['**/test/**/*.spec.js'],
+  moduleNameMapper: {
+    '^@newrelic/video-core$': '<rootDir>/node_modules/@newrelic/video-core/__mock__.js'
+  },
+  collectCoverageFrom: ['src/**/*.js'],
 };
