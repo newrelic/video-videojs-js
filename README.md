@@ -403,6 +403,19 @@ Configure how frequently data is sent to New Relic. Accepts values between 1000m
 tracker.setHarvestInterval(30000); // Send data every 30 seconds
 ```
 
+### Live Stream Configuration
+
+**Recommendations for Live Content:**
+
+For live streams, reduce the harvest interval to 5,000–10,000 ms for near-real-time data delivery:
+
+```javascript
+// Live content — flush every 5 seconds
+tracker.setHarvestInterval(5000)
+
+// VOD content — default 10s is sufficient or change it as required
+```
+
 #### `tracker.sendCustom(actionName, attributes)`
 
 Send custom events with arbitrary attributes.
