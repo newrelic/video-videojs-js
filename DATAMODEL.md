@@ -131,7 +131,7 @@ During typical playback of a 6 Mbps max stream playing at 2 Mbps quality:
 | bufferType               | When buffer starts, i.e., initial, seek, pause & connection.                                                                                       |
 | timeSinceRequested       | Time (in milliseconds) since the video was requested.                                                                                              |
 | timeSinceStarted         | Time (in milliseconds) since the video started playing.                                                                                            |
-| timeSinceTrackerReady    | Time (in milliseconds) since the tracker was initialized (PLAYER_READY).                                                                           |
+| timeSinceTrackerReady    | Time (in milliseconds) since the Tracker was constructed.                                                                           |
 | timeSinceLastHeartbeat   | Time (in milliseconds) since the last heartbeat event.                                                                                             |
 | timeSinceBufferBegin     | Time (in milliseconds) since the last buffer event began.                                                                                          |
 | timeSincePaused          | Time (in milliseconds) since the video was last paused.                                                                                            |
