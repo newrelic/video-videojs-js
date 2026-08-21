@@ -274,7 +274,6 @@ During typical playback of a 6 Mbps max stream playing at 2 Mbps quality:
 | viewId                   | Trackers will generate unique IDs for every new video iteration.                                                                                   |
 | contentId                | The ID of the video.                                                                                                                               |
 | contentTitle             | The title of the video.                                                                                                                            |
-| errorMessage                | Message describing the error.                                                                                                                                                                               |
 | errorCode                | Error code if it's known.                                                                                                                          |
 | errorMessage             | Error message describing what went wrong.                                                                                                          |
 | isBackgroundEvent        | If the player is hidden by another window.                                                                                                         |
