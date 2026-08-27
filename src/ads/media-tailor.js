@@ -9,12 +9,16 @@ import {
   TRACKING_API_TIMEOUT_MS,
   STREAM_TYPE,
   MANIFEST_TYPE,
+  MT_AD_ERROR_CODE,
+  REGEX_TRACKING_PATH_SEGMENT,
+  PRUNE_BUFFER_SECONDS,
 } from './utils/mt-constants.js';
 import {
   getTimestamp,
   detectManifestFormatFromUrl,
   detectPlaybackStreamType,
   buildTrackingEndpointUrl,
+  buildTrackingEndpointUrlFromMediaPlaylist,
   determineAdPosition,
   getQuartilesToFire,
   findActiveAdBreak,
@@ -25,6 +29,7 @@ import {
   detectAdBreaksFromVhsPlaylist,
   whichAdSegmentMarker,
   enrichAdScheduleWithTrackingMetadata,
+  extractHlsTrackingUrl,
   extractHlsTargetDurationSeconds,
   extractDashMinimumUpdatePeriodSeconds,
   fetchHlsMasterManifest,
@@ -38,6 +43,25 @@ const nrvideoCore = nrvideo.default || nrvideo;
 const Log = nrvideoCore.Log;
 
 /**
+ * SDK-boundary anti-patterns — what this tracker must NEVER do.
+ *
+ * MediaTailor stitches ads server-side; this tracker only observes the
+ * stitched stream and reports engagement. The following are out of scope by
+ * design — a violation is always a wrong-metric or scope-creep bug:
+ *
+ *  1. Do NOT fire VAST tracking beacons (the ad server / consumer does this).
+ *  2. Do NOT resolve VAST wrappers.
+ *  3. Do NOT implement ad personalization / targeting.
+ *  4. Do NOT cache ads across sessions (each sessionId is its own context).
+ *  5. Do NOT modify manifest query parameters.
+ *  6. Do NOT implement avail suppression.
+ *  7. Do NOT render ad UI, pause the player, or call back into business logic.
+ *  8. Do NOT assume every avail has ads (no-fill is valid — see no-fill handling).
+ *  9. Do NOT pre-fire impression beacons.
+ * 10. Do NOT perform OMID / viewability handoff.
+ */
+
+/**
  * AWS MediaTailor Ad Tracker
  * Tracks ads from AWS MediaTailor SSAI streams (HLS/DASH)
  *
@@ -45,7 +69,9 @@ const Log = nrvideoCore.Log;
  * - Client-side ad detection from manifest markers (CUE-OUT/CUE-IN)
  * - Pod-level tracking (multiple ads within one break)
  * - VOD and Live stream support
- * - Zero race conditions via VHS player hooks
+ * - VHS player hooks avoid races within the manifest-parsing pipeline;
+ *   dispose, timer-restart, and source-change races are handled separately
+ *   (see the tracker runtime-path notes), not eliminated by the hooks alone
  * - Tracking API metadata enrichment
  */
 export default class MediaTailorAdsTracker extends VideojsAdsTracker {
@@ -112,11 +138,34 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       Log.debug('[MT] ad segment detection: default (segments.mediatailor hostname or /tm/ path)');
     }
 
+    // pollIntervalMs: optional override for the live poll cadence. When set it
+    // wins over the manifest-derived interval, letting battery-constrained
+    // clients tune the loop; otherwise the tracker keeps its dynamic behavior.
+    // Clamped to [100, 5000] ms; a non-numeric value is ignored with a warning.
+    this.pollIntervalMs = null;
+    if (mtOptions.pollIntervalMs != null) {
+      const requested = Number(mtOptions.pollIntervalMs);
+      if (Number.isFinite(requested)) {
+        const clamped = Math.min(5000, Math.max(100, requested));
+        if (clamped !== requested) {
+          Log.warn(
+            `[MT] pollIntervalMs ${requested} out of range [100, 5000] — clamped to ${clamped}`,
+          );
+        }
+        this.pollIntervalMs = clamped;
+      } else {
+        Log.warn(
+          `[MT] pollIntervalMs must be a number — ignoring "${mtOptions.pollIntervalMs}"`,
+        );
+      }
+    }
+
     // Ad tracking state
     this.adSchedule = [];
     this.currentAdBreak = null;
     this.currentAdPod = null;
     this.hasEndedContent = false;
+    this.wasPaused = false;
 
     // Disposal and abort state
     this.isDisposed = false;
@@ -167,18 +216,36 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       `[MT - ${getTimestamp()}] Initializing ${this.manifestFormat.toUpperCase()} ${this.streamType.toUpperCase()} tracking`,
     );
 
-    // Prefer explicit tracking URL (explicit POST session) over derived one
-    this.trackingEndpointUrl =
-      this.explicitTrackingUrl ||
-      buildTrackingEndpointUrl(this.playbackManifestUrl);
+    // Resolve the tracking endpoint and log HOW it was detected, so a stream
+    // that surfaces no ads can be diagnosed from the log alone (wrong URL vs.
+    // implicit/server-side session vs. explicit override).
+    let detectionSource = null;
+    if (this.explicitTrackingUrl) {
+      this.trackingEndpointUrl = this.explicitTrackingUrl;
+      detectionSource = 'explicit mediatailor.trackingUrl option';
+    } else {
+      this.trackingEndpointUrl = buildTrackingEndpointUrl(this.playbackManifestUrl);
+      if (this.trackingEndpointUrl) {
+        detectionSource =
+          'derived from playback URL (sessionId query param — explicit session)';
+      }
+    }
+
     if (this.trackingEndpointUrl) {
       Log.debug(
-        `[MT - ${getTimestamp()}] Tracking URL extracted:`,
-        this.trackingEndpointUrl,
+        `[MT - ${getTimestamp()}] Tracking detection: ${detectionSource} → ${this.trackingEndpointUrl}`,
+      );
+    } else if (!REGEX_TRACKING_PATH_SEGMENT.test(this.playbackManifestUrl || '')) {
+      Log.warn(
+        `[MT - ${getTimestamp()}] Tracking detection: playback URL is not a MediaTailor format (${this.playbackManifestUrl}) — MediaTailor tracking disabled`,
       );
     } else {
-      Log.warn(
-        `[MT - ${getTimestamp()}] Could not derive tracking URL from playback URL — pass trackingUrl in mediatailor options if needed`,
+      // Normal implicit-session path (not an error): the master/playback URL has
+      // no ?aws.sessionId=, so the tracking URL is derived once the child
+      // media-playlist (HLS) or sessionized .mpd (DASH) loads via the tech hook —
+      // see maybeDeriveTrackingFromMediaPlaylist.
+      Log.debug(
+        `[MT - ${getTimestamp()}] Tracking detection: MediaTailor URL without sessionId query param (implicit session) — will derive the tracking URL from the media playlist once loaded`,
       );
     }
 
@@ -205,6 +272,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.onWaiting = this.onWaiting.bind(this);
     this.onEnded = this.onEnded.bind(this);
     this.onTimeUpdate = this.onTimeUpdate.bind(this);
+    this.onSourceChange = this.onSourceChange.bind(this);
 
     this.player.on('pause', this.onPause);
     this.player.on('playing', this.onPlaying);
@@ -213,6 +281,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.player.on('waiting', this.onWaiting);
     this.player.on('ended', this.onEnded);
     this.player.on('timeupdate', this.onTimeUpdate);
+    this.player.on('loadstart', this.onSourceChange);
     Log.debug(`[MT - ${getTimestamp()}] Event listeners registered`);
   }
 
@@ -228,6 +297,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     this.player.off('waiting', this.onWaiting);
     this.player.off('ended', this.onEnded);
     this.player.off('timeupdate', this.onTimeUpdate);
+    this.player.off('loadstart', this.onSourceChange);
     this.stopLivePolling();
   }
 
@@ -243,6 +313,22 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     if (this.trackingPollTimer) {
       clearInterval(this.trackingPollTimer);
       this.trackingPollTimer = null;
+    }
+  }
+
+  /**
+   * Aborts any in-flight tracking/manifest fetches and clears their controllers.
+   */
+  abortInFlightFetches() {
+    if (this.trackingAbortController) {
+      Log.debug(`[MT - ${getTimestamp()}] Aborting in-flight tracking fetch`);
+      this.trackingAbortController.abort();
+      this.trackingAbortController = null;
+    }
+    if (this.manifestAbortController) {
+      Log.debug(`[MT - ${getTimestamp()}] Aborting in-flight manifest fetch`);
+      this.manifestAbortController.abort();
+      this.manifestAbortController = null;
     }
   }
 
@@ -281,6 +367,10 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    * Returns the live polling interval in milliseconds
    */
   getLiveRefreshIntervalMs() {
+    // An explicit pollIntervalMs overrides the manifest-derived cadence.
+    if (this.pollIntervalMs) {
+      return this.pollIntervalMs;
+    }
     return this.liveRefreshIntervalSeconds
       ? this.liveRefreshIntervalSeconds * 1000
       : DEFAULT_LIVE_POLL_INTERVAL_MS;
@@ -311,7 +401,8 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
-   * Hooks into player's manifest loading (zero race condition)
+   * Hooks into player's manifest loading. The hook itself races-safely with
+   * the manifest-parsing pipeline; it does not cover dispose/timer/source-change.
    * Supports: VHS, Native HLS, contrib-hls, Shaka, dash.js
    */
   hookPlayerManifest() {
@@ -354,6 +445,12 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
     // Parse already-loaded playlist
     const currentPlaylist = tech.vhs.playlists.media();
+    // The VHS media-playlist resolvedUri carries the implicit-session sessionId
+    // in its path — derive the Tier-1 tracking endpoint from it (live path never
+    // hits fetchAndParseHlsManifest, so this is where live sessions engage it).
+    this.maybeDeriveTrackingFromMediaPlaylist(
+      currentPlaylist && (currentPlaylist.resolvedUri || currentPlaylist.uri),
+    );
     if (
       currentPlaylist &&
       currentPlaylist.segments &&
@@ -367,6 +464,9 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     tech.vhs.on('loadedplaylist', () => {
       const playlist = tech.vhs.playlists.media();
       if (playlist) {
+        this.maybeDeriveTrackingFromMediaPlaylist(
+          playlist.resolvedUri || playlist.uri,
+        );
         this.parseVhsPlaylistForAdBreaks(playlist);
       }
     });
@@ -429,6 +529,13 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     if (!tech.shakaPlayer) return false;
 
     Log.debug(`[MT - ${getTimestamp()}] Hooked: Shaka Player`);
+    // Implicit-session DASH derivation (analogue of the HLS VHS path). Shaka's
+    // resolved manifest URI carries the sessionId in the path for implicit
+    // sessions; fall back to the playback .mpd URL when the getter is absent.
+    this.maybeDeriveTrackingFromDashManifest(
+      (tech.shakaPlayer.getAssetUri && tech.shakaPlayer.getAssetUri()) ||
+        this.playbackManifestUrl,
+    );
     tech.shakaPlayer.addEventListener('emsg', (event) => {
       this.handleDASHEmsgEvent(event);
     });
@@ -443,6 +550,15 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
     if (!tech.dash || !tech.dash.on) return false;
 
     Log.debug(`[MT - ${getTimestamp()}] Hooked: dash.js`);
+    // Implicit-session DASH derivation (analogue of the HLS VHS path). dash.js
+    // exposes the resolved source via getSource(); fall back to the playback
+    // .mpd URL when unavailable.
+    this.maybeDeriveTrackingFromDashManifest(
+      (tech.dash.mediaPlayer &&
+        tech.dash.mediaPlayer.getSource &&
+        tech.dash.mediaPlayer.getSource()) ||
+        this.playbackManifestUrl,
+    );
     tech.dash.on('EVENT_MODE_ON_RECEIVE', (event) => {
       this.handleDASHEventStream(event);
     });
@@ -472,6 +588,55 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
+   * Derives the MediaTailor tracking endpoint from a sessionized MEDIA-PLAYLIST
+   * URL and captures the session id. Implicit sessions (GET /v1/master/...) carry
+   * the sessionId only in the child media-playlist path, so this is how live /
+   * server-side sessions obtain a tracking URL (and thus Tier-1 ad detection).
+   * No-op if an explicit or already-derived tracking URL exists. Logs the id.
+   * ponytail: repo has no test infra; derivation verified against live session
+   * URLs (0039eed8…, cf560510…) via buildTrackingEndpointUrlFromMediaPlaylist.
+   */
+  maybeDeriveTrackingFromMediaPlaylist(mediaPlaylistUrl) {
+    if (this.explicitTrackingUrl || this.trackingEndpointUrl || !mediaPlaylistUrl) {
+      return;
+    }
+    const trackingUrl = buildTrackingEndpointUrlFromMediaPlaylist(mediaPlaylistUrl);
+    if (!trackingUrl) return;
+
+    this.trackingEndpointUrl = trackingUrl;
+    Log.debug(
+      `[MT - ${getTimestamp()}] Tracking detection: derived from media-playlist session path (implicit session) → ${trackingUrl}`,
+    );
+  }
+
+  /**
+   * DASH analogue of maybeDeriveTrackingFromMediaPlaylist. MediaTailor DASH
+   * implicit sessions carry the sessionId in the path of the sessionized .mpd
+   * (/v1/dash/{config}/{origin}/{sessionId}/...), the same positional shape as
+   * the HLS /v1/manifest/ path — so it reuses buildTrackingEndpointUrlFromMediaPlaylist
+   * (regex now matches both). When the DASH URL is NOT a sessionized path the
+   * tracking URL cannot be derived from the URL alone; log that clearly and do
+   * nothing rather than risk mis-routing to a wrong endpoint.
+   * No-op if an explicit or already-derived tracking URL exists.
+   */
+  maybeDeriveTrackingFromDashManifest(dashManifestUrl) {
+    if (this.explicitTrackingUrl || this.trackingEndpointUrl) {
+      return;
+    }
+    const trackingUrl = buildTrackingEndpointUrlFromMediaPlaylist(dashManifestUrl);
+    if (!trackingUrl) {
+      Log.debug(
+        `[MT - ${getTimestamp()}] Tracking detection: DASH URL is not a sessionized /v1/dash/ path (${dashManifestUrl || 'none'}) — tracking URL not derivable from URL alone; relying on manifest-marker detection`,
+      );
+      return;
+    }
+    this.trackingEndpointUrl = trackingUrl;
+    Log.debug(
+      `[MT - ${getTimestamp()}] Tracking detection: derived from DASH session path (implicit session) → ${trackingUrl}`,
+    );
+  }
+
+  /**
    * Fetches and parses HLS master + media manifest
    */
   async fetchAndParseHlsManifest(manifestUrl) {
@@ -480,16 +645,36 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
       // Fetch master manifest
       const { mediaPlaylistUrl } = await fetchHlsMasterManifest(manifestUrl);
+      if (this.isDisposed) return; // disposed mid-fetch — don't touch state
 
       if (!mediaPlaylistUrl) {
         Log.debug(`[MT - ${getTimestamp()}] No media playlist found`);
         return;
       }
 
+      // Implicit-session derivation: the master URL had no ?aws.sessionId=
+      // query, but the child media-playlist path carries the sessionId. Derive
+      // the tracking endpoint from it so implicit / server-side sessions get
+      // Tier-1 tracking. DATERANGE (below) still overrides if published.
+      this.maybeDeriveTrackingFromMediaPlaylist(mediaPlaylistUrl);
+
       Log.debug(`[MT - ${getTimestamp()}] Fetching media playlist`);
 
       // Fetch media playlist
       const mediaText = await fetchHlsMediaPlaylist(mediaPlaylistUrl);
+      if (this.isDisposed) return; // disposed mid-fetch — don't touch state
+
+      // Prefer a tracking URL published in the manifest (DATERANGE) over the
+      // URL-rewrite heuristic, unless the caller passed an explicit override.
+      if (!this.explicitTrackingUrl) {
+        const daterangeTrackingUrl = extractHlsTrackingUrl(mediaText);
+        if (daterangeTrackingUrl && daterangeTrackingUrl !== this.trackingEndpointUrl) {
+          Log.debug(
+            `[MT - ${getTimestamp()}] Tracking URL from DATERANGE: ${daterangeTrackingUrl}`,
+          );
+          this.trackingEndpointUrl = daterangeTrackingUrl;
+        }
+      }
 
       const hlsTargetDurationSeconds = extractHlsTargetDurationSeconds(mediaText);
       this.updateLiveRefreshIntervalFromManifest(
@@ -519,6 +704,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
       // Fetch DASH manifest
       const xmlText = await fetchDashManifest(manifestUrl);
+      if (this.isDisposed) return; // disposed mid-fetch — don't touch state
 
       const dashMinimumUpdatePeriodSeconds =
         extractDashMinimumUpdatePeriodSeconds(xmlText);
@@ -662,9 +848,11 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         messageData: eventData.messageData,
       });
 
-      // Calculate timing
-      const startTime = parseFloat(eventData.presentationTime || 0);
-      const duration = parseFloat(eventData.duration || 0);
+      // Calculate timing — presentationTime/duration are in timescale ticks,
+      // convert to seconds (fallback to 1 when absent or zero to avoid NaN).
+      const timescale = parseFloat(eventData.timescale) || 1;
+      const startTime = parseFloat(eventData.presentationTime || 0) / timescale;
+      const duration = parseFloat(eventData.duration || 0) / timescale;
 
       if (duration > 0) {
         const adBreak = {
@@ -768,6 +956,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         }
       } else if (this.manifestFormat === MANIFEST_TYPE.DASH) {
         await this.fetchAndParseDashManifest(this.playbackManifestUrl);
+        if (this.isDisposed) return; // disposed mid-poll — don't resume
       }
     } catch (error) {
       Log.debug(`[MT - ${getTimestamp()}] Manifest poll error:`, error);
@@ -797,6 +986,30 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         `[MT - ${getTimestamp()}] Fetching tracking metadata (first manifest parse)`,
       );
       this.getAndProcessTrackingMetadata();
+    }
+  }
+
+  /**
+   * Prunes ad breaks whose window is safely behind the playhead so the schedule
+   * (and the per-tick O(n) findActiveAdBreak/findActivePod scans) stays bounded
+   * on 24/7 live. Keeps a break if it ended within PRUNE_BUFFER_SECONDS (so a
+   * late quartile/AD_END can still resolve) OR it is the currently-active break.
+   * Upcoming breaks (endTime in the future) are kept trivially by the predicate.
+   */
+  pruneStaleAdBreaks(currentTime) {
+    if (this.adSchedule.length === 0) return;
+
+    const cutoff = currentTime - PRUNE_BUFFER_SECONDS;
+    const before = this.adSchedule.length;
+    this.adSchedule = this.adSchedule.filter(
+      (ad) => ad === this.currentAdBreak || ad.endTime >= cutoff,
+    );
+
+    const removed = before - this.adSchedule.length;
+    if (removed > 0) {
+      Log.debug(
+        `[MT - ${getTimestamp()}] Pruned ${removed} stale ad break(s) (schedule now ${this.adSchedule.length})`,
+      );
     }
   }
 
@@ -846,6 +1059,13 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
       this.trackingAbortController = new AbortController();
 
+      // A single tokenless GET returns the COMPLETE current avail window — every
+      // avail, each with all of its ads. MediaTailor's nextToken is idempotent
+      // here: following it just re-returns the same avails. Paging therefore
+      // pushed duplicate copies of the same avail, which made enrichment create
+      // duplicate ad breaks — findActiveAdBreak tracked the first (stuck at 1
+      // pod) while the pod-growth append only grew the last, so pods #2/#3 were
+      // never tracked. One tokenless request, no paging.
       const data = await getTrackingMetadata(
         this.trackingEndpointUrl,
         TRACKING_API_TIMEOUT_MS,
@@ -879,6 +1099,19 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         error,
       );
 
+      // HTTP 400 on a tokenless request means the session itself is effectively
+      // dead (we no longer page across cycles, so an expired cursor can't cause
+      // this) — surface TOKEN_EXPIRED and stop polling.
+      if (error.status === 400) {
+        this.sendAdError(
+          MT_AD_ERROR_CODE.TOKEN_EXPIRED,
+          'tracking-fetch',
+          error.message,
+        );
+        this.stopLivePolling();
+        return;
+      }
+
       if (this.trackingFetchRetries < this.maxTrackingRetries) {
         this.trackingFetchRetries++;
         Log.debug(
@@ -888,6 +1121,15 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         await this.getAndProcessTrackingMetadata();
         return;
       }
+
+      // Retries exhausted — surface a semantic error before falling back to
+      // manifest-only data. A timeout maps to ADS_TIMEOUT; anything else
+      // (non-400) is a generic TRACKING_FETCH_FAILED.
+      const code =
+        error.code === 'ADS_TIMEOUT'
+          ? MT_AD_ERROR_CODE.ADS_TIMEOUT
+          : MT_AD_ERROR_CODE.TRACKING_FETCH_FAILED;
+      this.sendAdError(code, 'tracking-fetch', error.message);
 
       Log.debug(
         `[MT - ${getTimestamp()}] Max retries reached, continuing with manifest data only`,
@@ -955,7 +1197,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
 
     quartilesToFire.forEach(({ quartile, key }) => {
       Log.debug(`[MT - ${getTimestamp()}] → AD_QUARTILE ${quartile * 25}%`);
-      this.sendAdQuartile({ quartile });
+      this.sendAdQuartile({ quartile, adPrimaryId: this.getAdPrimaryId() });
       adObject[`hasFired${key.toUpperCase()}`] = true;
     });
   }
@@ -966,6 +1208,18 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   onTimeUpdate() {
     const currentTime = this.player.currentTime();
     const activeAdBreak = findActiveAdBreak(this.adSchedule, currentTime);
+
+    // Bound the schedule on long live: prune viewed avails, but only when NOT
+    // inside a break (so we never touch a break being tracked) and at most once
+    // per PRUNE_BUFFER_SECONDS of playhead (not every tick).
+    if (
+      !activeAdBreak &&
+      (this._lastPruneTime == null ||
+        currentTime - this._lastPruneTime >= PRUNE_BUFFER_SECONDS)
+    ) {
+      this.pruneStaleAdBreaks(currentTime);
+      this._lastPruneTime = currentTime;
+    }
 
     // Debug logging (only log when schedule exists and every 5 seconds)
     if (
@@ -1014,10 +1268,65 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
         });
         this.sendAdBreakStart();
         activeAdBreak.hasFiredStart = true;
+
+        if (activeAdBreak.isNoFill) {
+          // The ad decision service returned no ad for this avail. Report why,
+          // once, at break entry.
+          this.sendAdError(
+            MT_AD_ERROR_CODE.NO_FILL,
+            'tracking-merge',
+            'MediaTailor avail returned no ads (no-fill)',
+          );
+        }
+
+        if (activeAdBreak.hadMissingAvailStart) {
+          // Tracking omitted the avail start; we fell back to the first ad's
+          // start rather than dropping the avail. Surface it once.
+          this.sendAdError(
+            MT_AD_ERROR_CODE.MISSING_AVAIL_START,
+            'tracking-merge',
+            'MediaTailor avail missing startTimeInSeconds; fell back to first ad',
+          );
+        }
+
+        if (activeAdBreak.podCountMismatch) {
+          // Manifest pod count and tracking ad count disagreed; we kept the
+          // manifest geometry and matched by closest time. Surface it once.
+          this.sendAdError(
+            MT_AD_ERROR_CODE.MANIFEST_TRACKING_MISMATCH,
+            'tracking-merge',
+            'Manifest pod count differs from tracking ad count',
+          );
+        }
+      }
+
+      // No-fill avails fire only the break boundaries (AD_BREAK_START above and
+      // AD_BREAK_END on exit) — skip AD_START, quartiles, and AD_END so we
+      // don't record a phantom impression with zero engagement.
+      if (activeAdBreak.isNoFill) {
+        return;
       }
 
       // Check for pod-level tracking
       if (activeAdBreak.pods && activeAdBreak.pods.length > 0) {
+        // Late-append catch-up (#3): a pod the tracking API appended AFTER the
+        // playhead already passed its endTime is silently un-tracked —
+        // findActivePod never selects it and it never fires. Don't fabricate
+        // AD_START/quartiles (that would be phantom engagement); instead flag it
+        // once and log so the under-count is visible, not invisible.
+        activeAdBreak.pods.forEach((pod) => {
+          if (
+            !pod.hasFiredStart &&
+            !pod.missedByLateAppend &&
+            pod.endTime < currentTime
+          ) {
+            pod.missedByLateAppend = true;
+            Log.debug(
+              `[MT - ${getTimestamp()}] Pod appended past playhead — not tracked (avail=${activeAdBreak.availId || activeAdBreak.id}, adId=${pod.adId}, pod ${pod.startTime}-${pod.endTime}s, now ${currentTime.toFixed(2)}s)`,
+            );
+          }
+        });
+
         const activePod = findActivePod(activeAdBreak, currentTime);
 
         if (activePod) {
@@ -1026,7 +1335,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
             // End previous pod
             if (this.currentAdPod) {
               Log.debug(`[MT - ${getTimestamp()}] → AD_END (pod transition)`);
-              this.sendEnd();
+              this.sendEnd({ adPrimaryId: this.getAdPrimaryId() });
             }
 
             // Start new pod
@@ -1054,6 +1363,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
             this.sendStart({
               adPartner: 'aws-mediatailor',
               adPosition: activeAdBreak.adPosition,
+              adPrimaryId: this.getAdPrimaryId(),
             });
             activePod.hasFiredStart = true;
           }
@@ -1061,6 +1371,13 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
           // Track quartiles for pod
           const podProgress = currentTime - activePod.startTime;
           this.trackQuartiles(activePod, podProgress);
+        } else if (this.currentAdPod) {
+          // Playhead left the pod but is still inside the break (a dead-zone
+          // from segment-rounding). Fire AD_END now so completion isn't lost;
+          // AD_BREAK_END still fires when the break itself ends.
+          Log.debug(`[MT - ${getTimestamp()}] → AD_END (pod ended in break)`);
+          this.sendEnd({ adPrimaryId: this.getAdPrimaryId() });
+          this.currentAdPod = null;
         }
       } else {
         // No pods - treat entire break as single ad
@@ -1081,6 +1398,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
           this.sendStart({
             adPartner: 'aws-mediatailor',
             adPosition: activeAdBreak.adPosition,
+            adPrimaryId: this.getAdPrimaryId(),
           });
           activeAdBreak.hasFiredAdStart = true;
         }
@@ -1095,7 +1413,7 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
       // End last pod
       if (this.currentAdPod) {
         Log.debug(`[MT - ${getTimestamp()}] → AD_END (final pod)`);
-        this.sendEnd();
+        this.sendEnd({ adPrimaryId: this.getAdPrimaryId() });
         this.currentAdPod = null;
       }
 
@@ -1148,6 +1466,9 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    * Handle pause events - sends AD_PAUSE only when ads are playing
    */
   onPause() {
+    if (this.isAd()) {
+      this.wasPaused = true;
+    }
     this.handleAdEvent('AD_PAUSE', this.sendPause);
   }
 
@@ -1156,8 +1477,13 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
    */
   onPlaying() {
     if (this.isAd()) {
-      Log.debug(`[MT - ${getTimestamp()}] → AD_RESUME`);
-      this.sendResume();
+      // Only a genuine resume follows a pause; the first `playing` into an ad
+      // must not emit AD_RESUME (that would be AD_START's job).
+      if (this.wasPaused) {
+        Log.debug(`[MT - ${getTimestamp()}] → AD_RESUME`);
+        this.sendResume();
+        this.wasPaused = false;
+      }
       this.sendBufferEnd(); // Playing event also ends any buffering
     }
   }
@@ -1195,6 +1521,84 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
+   * Handle source swaps (player.src(newUrl)). Each MediaTailor session is
+   * anchored to a sessionId in the manifest URL, so a new source means a new
+   * ad-stitching context: clear the stale schedule, cancel in-flight fetches,
+   * re-derive the tracking endpoint from the new URL, and re-initialize once
+   * the new source's metadata is ready. Guarded on streamType so the initial
+   * load (handled in the constructor) is never double-initialized.
+   */
+  onSourceChange() {
+    const newUrl = this.player.currentSrc();
+    if (!this.streamType || !newUrl || newUrl === this.playbackManifestUrl) {
+      return;
+    }
+
+    Log.debug(`[MT - ${getTimestamp()}] Source changed → resetting tracker`, {
+      from: this.playbackManifestUrl,
+      to: newUrl,
+    });
+
+    // Cancel in-flight work and stop polling on the old session.
+    this.stopLivePolling();
+    this.abortInFlightFetches();
+
+    // Clear schedule and in-progress ad/tracking state.
+    this.adSchedule = [];
+    this.currentAdBreak = null;
+    this.currentAdPod = null;
+    this.wasPaused = false;
+    this.trackingEndpointUrl = null;
+    this.hasAttemptedTrackingFetch = false;
+    this.trackingFetchRetries = 0;
+    this.mediaPlaylistUrl = null;
+    this.lastMediaPlaylistText = null;
+
+    // Re-derive from the new source. Null streamType until the new source's
+    // metadata arrives, which also makes this handler ignore spurious
+    // loadstart events fired before re-initialization completes.
+    this.playbackManifestUrl = newUrl;
+    this.manifestFormat = detectManifestFormatFromUrl(newUrl);
+    this.streamType = null;
+    this.player.one('loadedmetadata', () => {
+      this.streamType = detectPlaybackStreamType(this.player.duration());
+      this.initializeTracking();
+    });
+  }
+
+  /**
+   * Emit an AD_ERROR with the semantic MediaTailor error taxonomy so operators
+   * can see why ads failed in NRDB instead of only a debug log. Delegates to
+   * the parent error event, which resolves to AD_ERROR while in an ad (and
+   * CONTENT_ERROR otherwise). `code` must be an MT_AD_ERROR_CODE value.
+   */
+  sendAdError(code, source, message) {
+    Log.debug(
+      `[MT - ${getTimestamp()}] → AD_ERROR ${code} (${source}): ${message}`,
+    );
+    this.sendError({
+      errorCode: code,
+      errorSource: source,
+      errorMessage: message,
+    });
+  }
+
+  /**
+   * Public API: signal a user-initiated ad skip (e.g. a "Skip Ad" button in
+   * the host app). Fires the ad-end event flagged as skipped so downstream can
+   * tell an opt-out apart from a natural completion. No-op when not currently
+   * in an ad. Mirrors the tracker's own 'adskip' player-event handling and the
+   * notifyAdSkipped API exposed by the iOS/Android MediaTailor trackers.
+   */
+  notifyAdSkipped() {
+    if (!this.isAd()) {
+      return;
+    }
+    Log.debug(`[MT - ${getTimestamp()}] notifyAdSkipped → AD_END (skipped)`);
+    this.sendEnd({ skipped: true, adPrimaryId: this.getAdPrimaryId() });
+  }
+
+  /**
    * Returns ad title for New Relic
    */
   getTitle() {
@@ -1210,13 +1614,34 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   getVideoId() {
     if (this.currentAdPod) {
       return (
-        this.currentAdPod.creativeId ||
+        this.currentAdPod.adId ||
         this.currentAdPod.title ||
         this.currentAdBreak?.id ||
         null
       );
     }
-    return this.currentAdBreak?.creativeId || this.currentAdBreak?.id || null;
+    return this.currentAdBreak?.adId || this.currentAdBreak?.id || null;
+  }
+
+  /**
+   * Returns the stable primary ad identity for New Relic (adPrimaryId
+   * attribute). Prefers the VAST creativeId (stable across avails), falling
+   * back to availId:adId, so count(DISTINCT adPrimaryId) reflects true
+   * creatives rather than per-avail adIds.
+   */
+  getAdPrimaryId() {
+    const ad = this.currentAdPod || this.currentAdBreak;
+    if (!ad) {
+      return null;
+    }
+    if (ad.creativeId) {
+      return ad.creativeId;
+    }
+    const availId = this.currentAdBreak?.availId;
+    if (availId && ad.adId) {
+      return `${availId}:${ad.adId}`;
+    }
+    return ad.adId || ad.id || null;
   }
 
   /**
@@ -1255,25 +1680,43 @@ export default class MediaTailorAdsTracker extends VideojsAdsTracker {
   }
 
   /**
+   * Public API: reversible teardown — stop polling and unregister player
+   * listeners without disposing the tracker. Unlike dispose() this does not
+   * set isDisposed, so callers can resume later by re-initializing. Idempotent.
+   * Canonical name shared with the iOS/Android trackers' stopTracking().
+   */
+  stopTracking() {
+    this.stopLivePolling();
+    this.unregisterListeners();
+  }
+
+  /**
    * Cleanup when tracker is destroyed
    */
   dispose() {
     Log.debug(`[MT - ${getTimestamp()}] Disposing MediaTailorAdsTracker`);
 
+    // If we're torn down mid-break, synthesize the outstanding closing events
+    // so downstream sees a balanced AD_BREAK_START → … → AD_END → AD_BREAK_END
+    // sequence instead of a dangling open break. Nulling currentAdBreak keeps
+    // this idempotent across repeated dispose() calls.
+    if (this.currentAdBreak) {
+      if (this.currentAdPod) {
+        Log.debug(`[MT - ${getTimestamp()}] → AD_END (dispose during active ad)`);
+        this.sendEnd({ adPrimaryId: this.getAdPrimaryId() });
+        this.currentAdPod = null;
+      }
+      if (!this.currentAdBreak.hasFiredEnd) {
+        Log.debug(`[MT - ${getTimestamp()}] → AD_BREAK_END (dispose during active ad)`);
+        this.sendAdBreakEnd();
+        this.currentAdBreak.hasFiredEnd = true;
+      }
+      this.currentAdBreak = null;
+    }
+
     this.isDisposed = true;
 
-    if (this.trackingAbortController) {
-      Log.debug(`[MT - ${getTimestamp()}] Aborting in-flight tracking fetch`);
-      this.trackingAbortController.abort();
-      this.trackingAbortController = null;
-    }
-
-    if (this.manifestAbortController) {
-      Log.debug(`[MT - ${getTimestamp()}] Aborting in-flight manifest fetch`);
-      this.manifestAbortController.abort();
-      this.manifestAbortController = null;
-    }
-
+    this.abortInFlightFetches();
     this.stopLivePolling();
     this.unregisterListeners();
     super.dispose && super.dispose();

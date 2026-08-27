@@ -21,6 +21,7 @@ import {
   REGEX_ISO_8601_DURATION,
   REGEX_MAP,
   REGEX_MANIFEST_FILE_SUFFIX,
+  REGEX_MEDIA_SESSION_PATH,
   REGEX_SESSION_ID,
   REGEX_TRACKING_PATH_SEGMENT,
   MT_HLS_CUE_IN_TAG,
@@ -85,6 +86,27 @@ export function buildTrackingEndpointUrl(manifestUrl) {
     .replace(REGEX_MANIFEST_FILE_SUFFIX, `/${sessionId}`);
 
   return trackingEndpointUrl;
+}
+
+/**
+ * Builds a tracking endpoint URL from a sessionized MEDIA-PLAYLIST URL.
+ *
+ * Implicit MediaTailor sessions (GET /v1/master/...) carry no ?aws.sessionId=
+ * query param, so buildTrackingEndpointUrl() returns null for them. The sessionId
+ * only appears in the child media-playlist path:
+ *   {base}/v1/manifest/{config}/{origin}/{sessionId}/{variant}.m3u8
+ * which this rewrites to the tracking endpoint:
+ *   {base}/v1/tracking/{config}/{origin}/{sessionId}
+ * Returns null if the URL is not a sessionized media-playlist path.
+ */
+export function buildTrackingEndpointUrlFromMediaPlaylist(mediaPlaylistUrl) {
+  if (!mediaPlaylistUrl) return null;
+
+  const match = mediaPlaylistUrl.match(REGEX_MEDIA_SESSION_PATH);
+  if (!match) return null;
+
+  const [, base, config, origin, sessionId] = match;
+  return `${base}/v1/tracking/${config}/${origin}/${sessionId}`;
 }
 
 /**
@@ -204,26 +226,48 @@ export function isValidAdBreak(adBreak) {
 }
 
 /**
- * Merges new ads into existing schedule (deduplicates by start time)
+ * Computes a stable dedup identity for an ad break. Prefers MediaTailor's
+ * stable identity (availId + availProgramDateTime for live, availId + start
+ * for VOD) so a break survives live sliding-window re-merges where start times
+ * jitter by a few hundred ms. Falls back to rounded start time for breaks with
+ * no tracking identity yet.
+ */
+export function computeDedupKey(ad) {
+  if (ad.availId && ad.availProgramDateTime) {
+    return `${ad.availId}|${ad.availProgramDateTime}`;
+  }
+  if (ad.availId) {
+    return `${ad.availId}|${Math.round(ad.startTime * 1000)}`;
+  }
+  return `${Math.round(ad.startTime)}`;
+}
+
+/**
+ * Merges new ads into existing schedule, deduplicating by stable identity.
  */
 export function mergeAdSchedules(existingSchedule, newAds) {
   const scheduleMap = new Map();
 
-  // Add existing ads to map (keyed by rounded start time)
-  existingSchedule.forEach((ad) => {
-    const key = Math.round(ad.startTime);
-    scheduleMap.set(key, ad);
-  });
+  // Index existing ads by stable identity AND by rounded time. The time index
+  // lets a raw manifest re-parse (which has no availId yet) still match a break
+  // that tracking has already enriched, avoiding a duplicate; the identity
+  // index keeps two breaks that round to the same second distinct.
+  const indexAd = (ad) => {
+    scheduleMap.set(computeDedupKey(ad), ad);
+    scheduleMap.set(`t|${Math.round(ad.startTime)}`, ad);
+  };
+  existingSchedule.forEach(indexAd);
 
   // Merge new ads
   const merged = [];
   newAds.forEach((newAd) => {
-    const key = Math.round(newAd.startTime);
-    const existingAd = scheduleMap.get(key);
+    const existingAd =
+      scheduleMap.get(computeDedupKey(newAd)) ||
+      scheduleMap.get(`t|${Math.round(newAd.startTime)}`);
 
     if (!existingAd) {
       merged.push(newAd);
-      scheduleMap.set(key, newAd);
+      indexAd(newAd);
     } else if (!existingAd.confirmedByTracking && newAd.confirmedByTracking) {
       Object.assign(existingAd, newAd);
     }
@@ -310,6 +354,9 @@ export function parseHlsManifestForAdBreaks(manifestText) {
         hasFiredStart: false,
         hasFiredEnd: false,
         hasFiredAdStart: false,
+        hasFiredQ1: false,
+        hasFiredQ2: false,
+        hasFiredQ3: false,
         confirmedByTracking: false,
       };
     }
@@ -335,6 +382,15 @@ export function parseHlsManifestForAdBreaks(manifestText) {
         if (actualDuration >= MIN_AD_DURATION) {
           currentAdBreak.duration = actualDuration;
           currentAdBreak.endTime = currentTime;
+          // Clamp pods so a segment-rounding overshoot can't push a pod's end
+          // past the break end (which would keep findActivePod "in a pod"
+          // beyond the break).
+          adPods.forEach((pod) => {
+            if (pod.endTime > currentTime) {
+              pod.endTime = currentTime;
+              pod.duration = pod.endTime - pod.startTime;
+            }
+          });
           currentAdBreak.pods = adPods;
           adBreaks.push(currentAdBreak);
         }
@@ -486,54 +542,165 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
   const newAds = [];
   trackingAvails.forEach((avail) => {
     const firstAd = avail.ads && avail.ads.length > 0 ? avail.ads[0] : null;
-    if (!firstAd) return;
 
-    const key = Math.round(firstAd.startTimeInSeconds);
+    if (!firstAd) {
+      // No-fill: the avail exists but carries no ads. Flag the break (rather
+      // than dropping it) so the state machine still fires break boundaries +
+      // AD_ERROR(NO_FILL) but suppresses AD_START/quartiles. If there's no
+      // client-side break yet, synthesize a no-fill one from the avail geometry.
+      const availStart = avail.startTimeInSeconds;
+      if (availStart == null) return;
+
+      const existing = scheduleMap.get(Math.round(availStart));
+      if (existing) {
+        existing.isNoFill = true;
+        existing.confirmedByTracking = true;
+      } else {
+        newAds.push({
+          id: avail.availId,
+          availId: avail.availId,
+          availProgramDateTime: avail.availProgramDateTime,
+          startTime: availStart,
+          duration: avail.durationInSeconds,
+          endTime: availStart + avail.durationInSeconds,
+          source: 'tracking-api',
+          confirmedByTracking: true,
+          isNoFill: true,
+          hasFiredStart: false,
+          hasFiredEnd: false,
+          hasFiredAdStart: false,
+          pods: [],
+        });
+      }
+      return;
+    }
+
+    // Resolve the avail start. MediaTailor occasionally omits startTimeInSeconds
+    // on the first ad; fall back to the avail-level start rather than letting a
+    // NaN key silently drop the avail, and flag the break so the state machine
+    // can surface MISSING_AVAIL_START.
+    let resolvedStart = firstAd.startTimeInSeconds;
+    let missingStart = false;
+    if (resolvedStart == null || Number.isNaN(resolvedStart)) {
+      resolvedStart = avail.startTimeInSeconds;
+      missingStart = true;
+    }
+    if (resolvedStart == null || Number.isNaN(resolvedStart)) {
+      return; // no usable start anywhere — cannot place this avail
+    }
+
+    const key = Math.round(resolvedStart);
     const existingAd = scheduleMap.get(key);
 
     if (existingAd) {
       // Enrich existing ad with tracking metadata
       existingAd.id = avail.availId;
-      existingAd.creativeId = firstAd.adId;
+      existingAd.availId = avail.availId;
+      existingAd.availProgramDateTime = avail.availProgramDateTime;
+      existingAd.adId = firstAd.adId;
+      existingAd.creativeId = firstAd.creativeId || null;
       existingAd.title = firstAd.adTitle;
       existingAd.confirmedByTracking = true;
+      if (missingStart) {
+        existingAd.hadMissingAvailStart = true;
+      }
 
-      // Enrich pods with tracking ad metadata
+      // Enrich pods with tracking ad metadata. Three cases: manifest has no
+      // pods yet (adopt tracking), counts agree (align by index), or counts
+      // disagree (keep manifest geometry — authoritative for tick timing —
+      // match each pod to the closest tracking ad by time, and flag the break
+      // so MANIFEST_TRACKING_MISMATCH surfaces).
       if (avail.ads && avail.ads.length > 0 && existingAd.pods) {
-        avail.ads.forEach((trackingAd, adIndex) => {
-          if (existingAd.pods[adIndex]) {
-            // Update existing pod
-            existingAd.pods[adIndex].title = trackingAd.adTitle;
-            existingAd.pods[adIndex].creativeId = trackingAd.adId;
-            existingAd.pods[adIndex].trackingStartTime = trackingAd.startTimeInSeconds;
-            existingAd.pods[adIndex].trackingDuration = trackingAd.durationInSeconds;
-          } else {
-            // Add new pod from tracking
+        const manifestPodCount = existingAd.pods.length;
+        const trackingAdCount = avail.ads.length;
+
+        if (manifestPodCount === 0) {
+          avail.ads.forEach((trackingAd) => {
             existingAd.pods.push({
               startTime: trackingAd.startTimeInSeconds,
               duration: trackingAd.durationInSeconds,
               endTime: trackingAd.startTimeInSeconds + trackingAd.durationInSeconds,
               title: trackingAd.adTitle,
-              creativeId: trackingAd.adId,
+              adId: trackingAd.adId,
+              creativeId: trackingAd.creativeId || null,
               hasFiredStart: false,
               hasFiredQ1: false,
               hasFiredQ2: false,
               hasFiredQ3: false,
             });
-          }
-        });
+          });
+        } else if (manifestPodCount === trackingAdCount) {
+          avail.ads.forEach((trackingAd, adIndex) => {
+            existingAd.pods[adIndex].title = trackingAd.adTitle;
+            existingAd.pods[adIndex].adId = trackingAd.adId;
+            existingAd.pods[adIndex].creativeId = trackingAd.creativeId || null;
+            existingAd.pods[adIndex].trackingStartTime = trackingAd.startTimeInSeconds;
+            existingAd.pods[adIndex].trackingDuration = trackingAd.durationInSeconds;
+          });
+        } else if (
+          trackingAdCount > manifestPodCount &&
+          existingAd.source === AD_SOURCE.TRACKING_API
+        ) {
+          // Live avails populate incrementally: a tracking-created break can
+          // start with 1 ad and gain more as the break approaches/plays. Append
+          // the newly-reported ads (keyed by adId) as pods, preserving pods
+          // already being tracked and their fired flags, so every ad in the pod
+          // gets AD_START / quartiles / AD_END (findActivePod picks them up on
+          // the next tick). Without this the break stays stuck at its first-seen
+          // pod count and only the first ad is tracked.
+          const knownAdIds = new Set(existingAd.pods.map((p) => p.adId));
+          avail.ads.forEach((trackingAd) => {
+            if (knownAdIds.has(trackingAd.adId)) return;
+            existingAd.pods.push({
+              startTime: trackingAd.startTimeInSeconds,
+              duration: trackingAd.durationInSeconds,
+              endTime: trackingAd.startTimeInSeconds + trackingAd.durationInSeconds,
+              title: trackingAd.adTitle,
+              adId: trackingAd.adId,
+              creativeId: trackingAd.creativeId || null,
+              hasFiredStart: false,
+              hasFiredQ1: false,
+              hasFiredQ2: false,
+              hasFiredQ3: false,
+            });
+          });
+        } else {
+          existingAd.podCountMismatch = true;
+          existingAd.pods.forEach((pod) => {
+            let best = null;
+            let bestDelta = Infinity;
+            avail.ads.forEach((trackingAd) => {
+              const delta = Math.abs(trackingAd.startTimeInSeconds - pod.startTime);
+              if (delta < bestDelta) {
+                bestDelta = delta;
+                best = trackingAd;
+              }
+            });
+            if (best && bestDelta <= AD_TIMING_TOLERANCE) {
+              pod.title = best.adTitle;
+              pod.adId = best.adId;
+              pod.creativeId = best.creativeId || null;
+              pod.trackingStartTime = best.startTimeInSeconds;
+              pod.trackingDuration = best.durationInSeconds;
+            }
+          });
+        }
       }
     } else {
       // Add new ad from tracking
       newAds.push({
         id: avail.availId,
-        startTime: firstAd.startTimeInSeconds,
+        availId: avail.availId,
+        availProgramDateTime: avail.availProgramDateTime,
+        startTime: resolvedStart,
         duration: avail.durationInSeconds,
-        endTime: firstAd.startTimeInSeconds + avail.durationInSeconds,
+        endTime: resolvedStart + avail.durationInSeconds,
         title: firstAd.adTitle,
-        creativeId: firstAd.adId,
+        adId: firstAd.adId,
+        creativeId: firstAd.creativeId || null,
         source: 'tracking-api',
         confirmedByTracking: true,
+        hadMissingAvailStart: missingStart,
         hasFiredStart: false,
         hasFiredEnd: false,
         hasFiredAdStart: false,
@@ -545,7 +712,8 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
           duration: ad.durationInSeconds,
           endTime: ad.startTimeInSeconds + ad.durationInSeconds,
           title: ad.adTitle,
-          creativeId: ad.adId,
+          adId: ad.adId,
+          creativeId: ad.creativeId || null,
           hasFiredStart: false,
           hasFiredQ1: false,
           hasFiredQ2: false,
@@ -556,6 +724,23 @@ export function enrichAdScheduleWithTrackingMetadata(adSchedule, trackingAvails)
   });
 
   return newAds;
+}
+
+/**
+ * Extracts a MediaTailor tracking URL published in the manifest via
+ * `#EXT-X-DATERANGE:CLASS="tracking",X-ASSET-URI="…"`. This is the spec's
+ * primary discovery mechanism and works on non-AWS CDNs where the URL-rewrite
+ * heuristic doesn't apply. Case-insensitive and null-safe.
+ */
+export function extractHlsTrackingUrl(manifestText) {
+  if (!manifestText) return null;
+  for (const line of manifestText.split('\n')) {
+    if (!/^#EXT-X-DATERANGE/i.test(line)) continue;
+    if (!/CLASS="tracking"/i.test(line)) continue;
+    const match = line.match(/X-ASSET-URI="([^"]+)"/i);
+    if (match) return match[1];
+  }
+  return null;
 }
 
 /**
@@ -664,14 +849,45 @@ export function parseDashManifestForAdBreaks(xmlText, { adSegmentPrefix } = {}) 
   if (periods.length > 1) {
     // ── MULTI_PERIOD ──────────────────────────────────────────────────────────
     // Ad periods are identified by a BaseURL pointing to the MediaTailor CDN.
-    periods.forEach((period) => {
-      const baseUrlEl = period.querySelector('BaseURL');
-      const baseUrl = baseUrlEl ? baseUrlEl.textContent.trim() : '';
+    const adCandidates = [MT_SEGMENT_PATTERN, MT_DEFAULT_AD_SEGMENT_PATH];
+    if (adSegmentPrefix) adCandidates.push(adSegmentPrefix);
+    const matchesAdMarker = (url) =>
+      !!url && adCandidates.some((m) => url.includes(m));
 
-      const adCandidates = [MT_SEGMENT_PATTERN, MT_DEFAULT_AD_SEGMENT_PATH];
-      if (adSegmentPrefix) adCandidates.push(adSegmentPrefix);
-      if (!adCandidates.some((m) => baseUrl.includes(m))) {
-        return; // content period
+    // Direct-child BaseURL only (querySelector would match a descendant rep's).
+    const directBaseUrl = (el) => {
+      for (const child of el.children) {
+        if (child.tagName === 'BaseURL') return child.textContent.trim();
+      }
+      return null;
+    };
+
+    // A period is an ad only if EVERY Representation resolves to an ad-marked
+    // BaseURL. Matching on any single rep (e.g. a shared-CDN audio rep) would
+    // misclassify a content period and block content telemetry.
+    const isAdPeriod = (period) => {
+      const periodBaseUrl = directBaseUrl(period) || '';
+      const adaptationSets = period.querySelectorAll('AdaptationSet');
+      let totalReps = 0;
+      let adReps = 0;
+      adaptationSets.forEach((as) => {
+        const asBaseUrl = directBaseUrl(as) || periodBaseUrl;
+        as.querySelectorAll('Representation').forEach((rep) => {
+          totalReps += 1;
+          const repBaseUrl = directBaseUrl(rep) || asBaseUrl;
+          if (matchesAdMarker(repBaseUrl)) adReps += 1;
+        });
+      });
+      // No representations to inspect — fall back to the period-level BaseURL.
+      if (totalReps === 0) {
+        return matchesAdMarker(periodBaseUrl);
+      }
+      return adReps === totalReps;
+    };
+
+    periods.forEach((period) => {
+      if (!isAdPeriod(period)) {
+        return; // content period (or mixed-rep — treated as content)
       }
 
       const periodId = period.getAttribute('id') || '';
@@ -759,10 +975,19 @@ export function parseDashManifestForAdBreaks(xmlText, { adSegmentPrefix } = {}) 
  * @param {number} timeout - Timeout in milliseconds
  * @param {AbortSignal} externalSignal - Optional external abort signal for cancellation
  */
-export async function getTrackingMetadata(trackingEndpointUrl, timeout = 8000, externalSignal = null) {
+export async function getTrackingMetadata(
+  trackingEndpointUrl,
+  timeout = 8000,
+  externalSignal = null,
+  nextToken = null,
+) {
   // Create AbortController for timeout support
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeout);
+  let didTimeout = false;
+  const timeoutId = setTimeout(() => {
+    didTimeout = true;
+    controller.abort();
+  }, timeout);
 
   // If external signal provided, listen for its abort event
   const abortHandler = () => controller.abort();
@@ -771,7 +996,14 @@ export async function getTrackingMetadata(trackingEndpointUrl, timeout = 8000, e
   }
 
   try {
-    const response = await fetch(`${trackingEndpointUrl}?t=${Date.now()}`, {
+    // Round-trip the pagination cursor as a query param (matching the iOS
+    // client). Absent/expired tokens are simply omitted.
+    let requestUrl = `${trackingEndpointUrl}?t=${Date.now()}`;
+    if (nextToken) {
+      requestUrl += `&nextToken=${encodeURIComponent(nextToken)}`;
+    }
+
+    const response = await fetch(requestUrl, {
       signal: controller.signal,
       credentials: 'include',
     });
@@ -782,7 +1014,9 @@ export async function getTrackingMetadata(trackingEndpointUrl, timeout = 8000, e
     }
 
     if (!response.ok) {
-      throw new Error(`Tracking API error: ${response.status}`);
+      const httpError = new Error(`Tracking API error: ${response.status}`);
+      httpError.status = response.status;
+      throw httpError;
     }
 
     return await response.json();
@@ -790,6 +1024,14 @@ export async function getTrackingMetadata(trackingEndpointUrl, timeout = 8000, e
     clearTimeout(timeoutId);
     if (externalSignal) {
       externalSignal.removeEventListener('abort', abortHandler);
+    }
+    // A timeout-triggered abort is distinct from a caller-initiated (dispose)
+    // abort: tag it so the tracker can emit ADS_TIMEOUT instead of staying
+    // silent the way it does for a dispose abort.
+    if (didTimeout) {
+      const timeoutError = new Error(`Tracking API timeout after ${timeout}ms`);
+      timeoutError.code = 'ADS_TIMEOUT';
+      throw timeoutError;
     }
     throw error;
   }
