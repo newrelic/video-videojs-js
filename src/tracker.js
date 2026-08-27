@@ -1,4 +1,4 @@
-import nrvideo from '@newrelic/video-core';
+import nrvideo from '@newrelic/video-core/browser';
 import pkg from '../package.json';
 import ContribHlsTech from './techs/contrib-hls';
 import HlsJsTech from './techs/hls-js';
