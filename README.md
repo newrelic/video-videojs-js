@@ -55,6 +55,8 @@ npm install @newrelic/video-videojs
 yarn add @newrelic/video-videojs
 ```
 
+`@newrelic/video-videojs` and `@newrelic/video-videojs/browser` both resolve to the same browser-only build — the `/browser` subpath exists for parity with `@newrelic/video-core`'s own export structure and is safe to use interchangeably with the default import.
+
 ### Option 2: Direct Script Include (Without NPM)
 
 For quick integration without a build system, include the tracker directly in your HTML:

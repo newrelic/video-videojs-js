@@ -3,7 +3,7 @@
  * Helper functions for AWS MediaTailor ad tracking
  */
 
-import nrvideo from '@newrelic/video-core';
+import nrvideo from '@newrelic/video-core/browser';
 
 const nrvideoCore = nrvideo.default || nrvideo;
 const Log = nrvideoCore.Log;
