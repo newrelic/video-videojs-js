@@ -1,3 +1,43 @@
+## [5.0.0](https://github.com/newrelic/video-videojs-js/compare/v4.2.1...v5.0.0) (2026-09-17)
+
+
+### ⚠ BREAKING CHANGES
+
+* marking as major to finally cut the version bump
+* add browser-subpath export and bump video-core to 5.0.2
+
+### New features
+
+* add browser-subpath export and bump video-core to 5.0.2 ([6b198d1](https://github.com/newrelic/video-videojs-js/commit/6b198d108e844fe31866a715abea895c183ab601))
+* bump @newrelic/video-core to 5.1.0 ([3a7a326](https://github.com/newrelic/video-videojs-js/commit/3a7a32671a054d27af0190212fdb507f9e74c30d)), closes [#132](https://github.com/newrelic/video-videojs-js/issues/132)
+
+
+### Bug fixes
+
+* add AD_ERROR taxonomy and surface tracking-fetch failures ([7d56b1b](https://github.com/newrelic/video-videojs-js/commit/7d56b1b5d52a7de2f7cc6a734d633aa8ba6b3db2))
+* add notifyAdSkipped() public API ([b06a8a5](https://github.com/newrelic/video-videojs-js/commit/b06a8a54b74114fd203b653e5c59482a6949965e))
+* add stopTracking() public alias ([0c66d22](https://github.com/newrelic/video-videojs-js/commit/0c66d229f082066b9ae529fe6d7a9ebd96017405))
+* allow overriding live poll cadence via pollIntervalMs option ([572ed4e](https://github.com/newrelic/video-videojs-js/commit/572ed4e80808ae737626ce0709cb7ca6bc2b874b))
+* close active ad break on dispose ([e6de553](https://github.com/newrelic/video-videojs-js/commit/e6de5531d63b45462cf0f2f45586679ffdccfd66))
+* convert DASH EventStream ad times from ticks to seconds ([ac225aa](https://github.com/newrelic/video-videojs-js/commit/ac225aab9c99fd580ad016ae50aa219af1c93c5c))
+* dedup ad breaks by stable identity across live re-merges ([ce0fbcb](https://github.com/newrelic/video-videojs-js/commit/ce0fbcbbcb4c1fa0aab6fbe034e8d51bcf94d340))
+* derive MediaTailor tracking URL from implicit-session media-playlist path ([b8a6e4d](https://github.com/newrelic/video-videojs-js/commit/b8a6e4dc45d5b3eb73fa815277ea86e565665f3b))
+* discover tracking URL from HLS DATERANGE tag ([d82f572](https://github.com/newrelic/video-videojs-js/commit/d82f5725c9dfd08799fe6cfe5b1dd9684925597f))
+* fire AD_END when a pod ends before its break ([43cecd8](https://github.com/newrelic/video-videojs-js/commit/43cecd8c8dedd7dea0fd268a10470426afb5f89b))
+* forward MediaTailor config options to the tracker ([a1927f8](https://github.com/newrelic/video-videojs-js/commit/a1927f88df33f6573a49e366ffc86b0fb1ebd49b))
+* handle expired tracking pagination token (HTTP 400) ([d33a3f6](https://github.com/newrelic/video-videojs-js/commit/d33a3f6c9a67e815d829352077b8b4dd7eb8d518))
+* handle no-fill avails without a phantom impression ([31d5e45](https://github.com/newrelic/video-videojs-js/commit/31d5e45c76844811ad012ab612ad4390b583fa8e))
+* initialize quartile flags on CUE-parsed HLS ad breaks ([3f594ee](https://github.com/newrelic/video-videojs-js/commit/3f594ee750aa13a185bf67df3b7f3fbd5cc5bd0a))
+* log MediaTailor tracking-URL detection path ([ed15751](https://github.com/newrelic/video-videojs-js/commit/ed157517596583052426999a6bb10fd38eb0d897))
+* only emit AD_RESUME after a genuine ad pause ([46a72c7](https://github.com/newrelic/video-videojs-js/commit/46a72c78c91604212854e8804aaab7eae41015aa))
+* re-check isDisposed after manifest-fetch awaits ([fb0bc3f](https://github.com/newrelic/video-videojs-js/commit/fb0bc3fd6fbd1eac0d551917b3ca9d3dce49b830))
+* reconcile pod-count mismatch between manifest and tracking ([28db79e](https://github.com/newrelic/video-videojs-js/commit/28db79eb805d3a0d04988ec407c3d4e3d87bc0da))
+* recover avails with a missing start instead of dropping them ([7957d77](https://github.com/newrelic/video-videojs-js/commit/7957d77ab510ebd693ebaa68bb7b835d7ceb59c0))
+* require unanimous representation match for DASH ad periods ([a0a43f2](https://github.com/newrelic/video-videojs-js/commit/a0a43f26564a666604be517c28912fd238777079))
+* reset tracker on source change ([5bff703](https://github.com/newrelic/video-videojs-js/commit/5bff70372e403140acf49d8a7a0f58a19a70b278))
+* track all ads in a MediaTailor multi-ad pod ([d3dc4db](https://github.com/newrelic/video-videojs-js/commit/d3dc4db7cd806723de97cac8b40752864d74b83d))
+* use creativeId as stable ad identity and emit adPrimaryId ([3e78b86](https://github.com/newrelic/video-videojs-js/commit/3e78b8616fb6104ec23f9f18e164b92bae6fd51c))
+
 ### Features
 
 - **Ad error taxonomy:** The MediaTailor tracker now emits `AD_ERROR` with a semantic `errorCode` (plus `errorSource` and `errorMessage`) for non-terminal failures, so problems are visible in NRDB instead of only the debug log. Codes: `NO_FILL`, `ADS_TIMEOUT`, `TRACKING_FETCH_FAILED`, `TOKEN_EXPIRED`, `MISSING_AVAIL_START`, `MANIFEST_TRACKING_MISMATCH` (and a reserved `MANIFEST_PARSE_FAILED`).
