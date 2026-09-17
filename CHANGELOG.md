@@ -36,7 +36,6 @@
 * track all ads in a MediaTailor multi-ad pod ([d3dc4db](https://github.com/newrelic/video-videojs-js/commit/d3dc4db7cd806723de97cac8b40752864d74b83d))
 * use creativeId as stable ad identity and emit adPrimaryId ([3e78b86](https://github.com/newrelic/video-videojs-js/commit/3e78b8616fb6104ec23f9f18e164b92bae6fd51c))
 
-## [Unreleased]
 
 ### Features
 
