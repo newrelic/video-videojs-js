@@ -70,6 +70,6 @@
     "access": "public"
   },
   "dependencies": {
-    "@newrelic/video-core": "^5.0.2"
+    "@newrelic/video-core": "^5.1.0"
   }
 }

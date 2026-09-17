@@ -1,5 +1,3 @@
-## [Unreleased]
-
 ### Features
 
 - **Ad error taxonomy:** The MediaTailor tracker now emits `AD_ERROR` with a semantic `errorCode` (plus `errorSource` and `errorMessage`) for non-terminal failures, so problems are visible in NRDB instead of only the debug log. Codes: `NO_FILL`, `ADS_TIMEOUT`, `TRACKING_FETCH_FAILED`, `TOKEN_EXPIRED`, `MISSING_AVAIL_START`, `MANIFEST_TRACKING_MISMATCH` (and a reserved `MANIFEST_PARSE_FAILED`).
