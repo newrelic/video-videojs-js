@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build-and-publish:
-    uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@stable
+    uses: newrelic/video-core-js/.github/workflows/npm-publish.yml@master
     with:
       s3-path: 'media-agents/browser/videojs'
       file-to-upload: 'dist/umd/newrelic-video-videojs.min.js'
