@@ -1,72 +1,41 @@
 ## [5.0.0](https://github.com/newrelic/video-videojs-js/compare/v4.2.1...v5.0.0) (2026-09-17)
 
+### Notes
 
-### ⚠ BREAKING CHANGES
-
-* marking as major to finally cut the version bump
-* add browser-subpath export and bump video-core to 5.0.2
+- **Breaking change:** This release adds a `package.json#exports` map. Deep imports into internal paths of this package will no longer resolve — only the root export (`@newrelic/video-videojs-js`) and the new `/browser` subpath are valid import targets. Update any direct deep-imports before upgrading.
 
 ### New features
 
-* add browser-subpath export and bump video-core to 5.0.2 ([6b198d1](https://github.com/newrelic/video-videojs-js/commit/6b198d108e844fe31866a715abea895c183ab601))
-* bump @newrelic/video-core to 5.1.0 ([3a7a326](https://github.com/newrelic/video-videojs-js/commit/3a7a32671a054d27af0190212fdb507f9e74c30d)), closes [#132](https://github.com/newrelic/video-videojs-js/issues/132)
+- **`/browser` subpath export:** A `@newrelic/video-videojs-js/browser` entry point is now available that excludes unused Vega/connected-device code, reducing bundle size for browser consumers.
+- **`notifyAdSkipped()` (MediaTailor):** Host apps with a custom skip-ad UI can report a user-initiated skip. Emits the skipped ad-end event when in an ad; no-op otherwise. Mirrors the equivalent API on the iOS/Android trackers.
+- **`stopTracking()` (MediaTailor):** Reversible teardown that stops polling and unregisters listeners without disposing the tracker, so it can be resumed later. Shares the method name used by the iOS/Android trackers.
+- **`AD_ERROR` events (MediaTailor):** Non-terminal failures now surface as `AD_ERROR` events in NRDB with a semantic `errorCode` (`NO_FILL`, `ADS_TIMEOUT`, `TRACKING_FETCH_FAILED`, `TOKEN_EXPIRED`, `MISSING_AVAIL_START`, `MANIFEST_TRACKING_MISMATCH`) instead of only appearing in the debug log.
+- **`adPrimaryId` attribute (MediaTailor):** `AD_START`, `AD_END`, and `AD_QUARTILE` now carry `adPrimaryId` (the VAST `creativeId`, falling back to `availId:adId`) so `count(DISTINCT adPrimaryId)` counts true creatives, not per-avail ad IDs.
 
+### Improvements
+
+- **`@newrelic/video-core` updated to 5.1.0**, which includes a TypeScript conversion, upstream bug fixes, and dependency patches.
+- **Configurable poll cadence (MediaTailor):** `config.ad.pollIntervalMs` overrides the manifest-derived live poll interval (clamped to 100–5000 ms) for battery- or CPU-constrained clients. Behavior is unchanged when the option is omitted.
+- **Tracking URL from HLS manifest (MediaTailor):** The tracker now reads the tracking endpoint from an `#EXT-X-DATERANGE CLASS="tracking"` tag when present, removing the need to pass an explicit `trackingUrl` on non-AWS CDNs. An explicit option still takes precedence.
+- **Source-change reset (MediaTailor):** Swapping `player.src()` now resets the tracker — cancels in-flight fetches, clears the stale ad schedule, and re-derives the tracking endpoint — instead of continuing to poll the previous session's endpoint.
 
 ### Bug fixes
 
-* add AD_ERROR taxonomy and surface tracking-fetch failures ([7d56b1b](https://github.com/newrelic/video-videojs-js/commit/7d56b1b5d52a7de2f7cc6a734d633aa8ba6b3db2))
-* add notifyAdSkipped() public API ([b06a8a5](https://github.com/newrelic/video-videojs-js/commit/b06a8a54b74114fd203b653e5c59482a6949965e))
-* add stopTracking() public alias ([0c66d22](https://github.com/newrelic/video-videojs-js/commit/0c66d229f082066b9ae529fe6d7a9ebd96017405))
-* allow overriding live poll cadence via pollIntervalMs option ([572ed4e](https://github.com/newrelic/video-videojs-js/commit/572ed4e80808ae737626ce0709cb7ca6bc2b874b))
-* close active ad break on dispose ([e6de553](https://github.com/newrelic/video-videojs-js/commit/e6de5531d63b45462cf0f2f45586679ffdccfd66))
-* convert DASH EventStream ad times from ticks to seconds ([ac225aa](https://github.com/newrelic/video-videojs-js/commit/ac225aab9c99fd580ad016ae50aa219af1c93c5c))
-* dedup ad breaks by stable identity across live re-merges ([ce0fbcb](https://github.com/newrelic/video-videojs-js/commit/ce0fbcbbcb4c1fa0aab6fbe034e8d51bcf94d340))
-* derive MediaTailor tracking URL from implicit-session media-playlist path ([b8a6e4d](https://github.com/newrelic/video-videojs-js/commit/b8a6e4dc45d5b3eb73fa815277ea86e565665f3b))
-* discover tracking URL from HLS DATERANGE tag ([d82f572](https://github.com/newrelic/video-videojs-js/commit/d82f5725c9dfd08799fe6cfe5b1dd9684925597f))
-* fire AD_END when a pod ends before its break ([43cecd8](https://github.com/newrelic/video-videojs-js/commit/43cecd8c8dedd7dea0fd268a10470426afb5f89b))
-* forward MediaTailor config options to the tracker ([a1927f8](https://github.com/newrelic/video-videojs-js/commit/a1927f88df33f6573a49e366ffc86b0fb1ebd49b))
-* handle expired tracking pagination token (HTTP 400) ([d33a3f6](https://github.com/newrelic/video-videojs-js/commit/d33a3f6c9a67e815d829352077b8b4dd7eb8d518))
-* handle no-fill avails without a phantom impression ([31d5e45](https://github.com/newrelic/video-videojs-js/commit/31d5e45c76844811ad012ab612ad4390b583fa8e))
-* initialize quartile flags on CUE-parsed HLS ad breaks ([3f594ee](https://github.com/newrelic/video-videojs-js/commit/3f594ee750aa13a185bf67df3b7f3fbd5cc5bd0a))
-* log MediaTailor tracking-URL detection path ([ed15751](https://github.com/newrelic/video-videojs-js/commit/ed157517596583052426999a6bb10fd38eb0d897))
-* only emit AD_RESUME after a genuine ad pause ([46a72c7](https://github.com/newrelic/video-videojs-js/commit/46a72c78c91604212854e8804aaab7eae41015aa))
-* re-check isDisposed after manifest-fetch awaits ([fb0bc3f](https://github.com/newrelic/video-videojs-js/commit/fb0bc3fd6fbd1eac0d551917b3ca9d3dce49b830))
-* reconcile pod-count mismatch between manifest and tracking ([28db79e](https://github.com/newrelic/video-videojs-js/commit/28db79eb805d3a0d04988ec407c3d4e3d87bc0da))
-* recover avails with a missing start instead of dropping them ([7957d77](https://github.com/newrelic/video-videojs-js/commit/7957d77ab510ebd693ebaa68bb7b835d7ceb59c0))
-* require unanimous representation match for DASH ad periods ([a0a43f2](https://github.com/newrelic/video-videojs-js/commit/a0a43f26564a666604be517c28912fd238777079))
-* reset tracker on source change ([5bff703](https://github.com/newrelic/video-videojs-js/commit/5bff70372e403140acf49d8a7a0f58a19a70b278))
-* track all ads in a MediaTailor multi-ad pod ([d3dc4db](https://github.com/newrelic/video-videojs-js/commit/d3dc4db7cd806723de97cac8b40752864d74b83d))
-* use creativeId as stable ad identity and emit adPrimaryId ([3e78b86](https://github.com/newrelic/video-videojs-js/commit/3e78b8616fb6104ec23f9f18e164b92bae6fd51c))
-
-### Features
-
-- **Ad error taxonomy:** The MediaTailor tracker now emits `AD_ERROR` with a semantic `errorCode` (plus `errorSource` and `errorMessage`) for non-terminal failures, so problems are visible in NRDB instead of only the debug log. Codes: `NO_FILL`, `ADS_TIMEOUT`, `TRACKING_FETCH_FAILED`, `TOKEN_EXPIRED`, `MISSING_AVAIL_START`, `MANIFEST_TRACKING_MISMATCH` (and a reserved `MANIFEST_PARSE_FAILED`).
-- **`notifyAdSkipped()` public API:** Host apps with their own "skip ad" UI can report a user-initiated skip; emits the skipped ad-end when in an ad, and is a no-op otherwise.
-- **`stopTracking()` public API:** Reversible teardown — stops polling and unregisters player listeners without disposing the tracker, so it can be resumed. Shares the method name used by the iOS/Android trackers.
-- **Configurable poll cadence (`pollIntervalMs`):** Battery- or CPU-constrained clients can override the manifest-derived live poll interval via `config.ad.pollIntervalMs` (clamped to 100–5000 ms; unchanged behavior when omitted).
-- **Manifest-published tracking URL:** The tracker reads a tracking endpoint from an HLS `#EXT-X-DATERANGE CLASS="tracking"` tag (`X-ASSET-URI`) when present — the spec's primary discovery mechanism — so non-AWS-CDN setups no longer require an explicit `trackingUrl`. An explicit `trackingUrl` still takes precedence.
-- **Stable creative identity (`adPrimaryId`):** `AD_START`, `AD_END`, and `AD_QUARTILE` now carry an `adPrimaryId` attribute (the VAST `creativeId`, falling back to `availId:adId`) so `count(DISTINCT adPrimaryId)` reflects true creatives rather than per-avail ad IDs.
-- **Source-change reset:** The tracker reacts to `player.src()` swaps — clearing the stale schedule, cancelling in-flight fetches, re-deriving the tracking endpoint, and re-initializing — instead of continuing to poll the previous session's endpoint.
-
-### Bug Fixes
-
-- **Quartile flags on CUE-parsed HLS breaks:** Ad breaks discovered from `#EXT-X-CUE-OUT` now initialize `hasFiredQ1/Q2/Q3`, so quartile events fire exactly once per ad regardless of parse path.
-- **DASH EventStream timing:** `presentationTime`/`duration` from the dash.js path are converted from timescale ticks to seconds, so ads land at the correct offsets.
-- **Balanced events on dispose:** Disposing mid-ad now emits the outstanding `AD_END`/`AD_BREAK_END` before teardown, closing the break instead of leaving it dangling.
-- **`AD_RESUME` accuracy:** `AD_RESUME` only fires after a genuine pause, not on first play into an ad.
-- **Pod-end completion:** `AD_END` fires when the playhead leaves a pod while still inside the break (segment-rounding dead-zone), and pod ends are clamped to the break end.
-- **Expired tracking token:** The `nextToken` pagination cursor is round-tripped; on HTTP 400 it is dropped and retried once, and a persistent 400 emits `TOKEN_EXPIRED` and stops polling.
-- **No-fill avails:** Avails with no ads fire only the break boundaries plus `AD_ERROR(NO_FILL)` — no phantom `AD_START`/quartiles.
-- **Stable live dedup:** Ad breaks dedupe by stable identity (`availId` + `availProgramDateTime`) so live sliding-window re-merges no longer duplicate or drop breaks.
-- **Missing avail start:** Avails missing `startTimeInSeconds` fall back to the first ad's start (emitting `MISSING_AVAIL_START`) instead of being silently dropped.
-- **Pod-count mismatch:** When manifest pod count and tracking ad count disagree, manifest geometry is kept, pods are matched by closest time, and `MANIFEST_TRACKING_MISMATCH` is emitted.
-- **DASH multi-period classification:** A period is treated as an ad only when every Representation resolves to an ad-marked `BaseURL`, preventing a single shared-CDN representation from misclassifying a content period.
-- **Post-await dispose safety:** Manifest and media-playlist fetches re-check `isDisposed` after each `await` before mutating state.
-- **Config option plumbing:** `config.ad.segmentPrefix` now actually reaches the tracker (it was mapped to the wrong internal key), and `pollIntervalMs` is forwarded through the same `config.ad` surface.
-
-### Documentation
-
-- **README & SSAI docs:** Documented the new ad-error events, `adPrimaryId`, `notifyAdSkipped()`/`stopTracking()`, `pollIntervalMs`, DATERANGE tracking-URL discovery, and token-expiry handling; corrected overstated race-safety wording in the tracker source.
+- MediaTailor: Only the first ad in a multi-ad pod was tracked. The paging loop re-fetched the same avail on every page; the tracker now fetches the full window in a single tokenless request.
+- MediaTailor: The tracking endpoint could not be derived for implicit-session media-playlist URLs, so Tier-1 ad detection never ran for those sessions.
+- MediaTailor: `config.ad.segmentPrefix` was silently ignored because it was mapped to the wrong internal key.
+- MediaTailor: A DASH period was classified as an ad when only one of several representations resolved to an ad-marked URL. Classification now requires every representation to match.
+- MediaTailor: `AD_END` was not fired when a pod ended before its enclosing break boundary, causing completions to be undercounted.
+- MediaTailor: Pod-count mismatches between manifest and tracking data silently corrupted break geometry; the tracker now reconciles counts explicitly and emits `MANIFEST_TRACKING_MISMATCH`.
+- MediaTailor: Avails with a missing `startTimeInSeconds` were silently dropped, undercounting impressions in NRDB; the tracker now falls back to the first ad's start and emits `MISSING_AVAIL_START`.
+- MediaTailor: Live sliding-window re-merges duplicated or dropped ad breaks when start times jittered; breaks now deduplicate by stable identity (`availId` + `availProgramDateTime`).
+- MediaTailor: No-fill avails emitted phantom `AD_START`/quartile events; they now emit only break boundaries plus `AD_ERROR(NO_FILL)`.
+- MediaTailor: Expired tracking pagination tokens (`HTTP 400`) were not handled; the token is now dropped and retried once before emitting `TOKEN_EXPIRED` and stopping polling.
+- MediaTailor: Manifest fetches did not re-check `isDisposed` after each `await`, risking state mutation on a disposed tracker.
+- `AD_RESUME` was fired on first play into an ad, not only after a genuine pause.
+- Disposing mid-ad did not emit the outstanding `AD_END`/`AD_BREAK_END`, leaving the break dangling.
+- DASH EventStream `presentationTime` values were treated as raw ticks instead of being converted to seconds, misplacing ads at wrong offsets.
+- HLS `#EXT-X-CUE-OUT`-parsed ad breaks did not initialize quartile flags, causing quartile events to fire more than once per ad.
 
 ## [4.2.1](https://github.com/newrelic/video-videojs-js/compare/v4.2.0...v4.2.1) (2026-06-18)
 
