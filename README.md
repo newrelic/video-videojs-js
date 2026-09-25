@@ -55,6 +55,8 @@ npm install @newrelic/video-videojs
 yarn add @newrelic/video-videojs
 ```
 
+`@newrelic/video-videojs` and `@newrelic/video-videojs/browser` both resolve to the same browser-only build — the `/browser` subpath exists for parity with `@newrelic/video-core`'s own export structure and is safe to use interchangeably with the default import.
+
 ### Option 2: Direct Script Include (Without NPM)
 
 For quick integration without a build system, include the tracker directly in your HTML:
@@ -403,6 +405,19 @@ Configure how frequently data is sent to New Relic. Accepts values between 1000m
 tracker.setHarvestInterval(30000); // Send data every 30 seconds
 ```
 
+### Live Stream Configuration
+
+**Recommendations for Live Content:**
+
+For live streams, reduce the harvest interval to 5,000–10,000 ms for near-real-time data delivery:
+
+```javascript
+// Live content — flush every 5 seconds
+tracker.setHarvestInterval(5000)
+
+// VOD content — default 10s is sufficient or change it as required
+```
+
 #### `tracker.sendCustom(actionName, attributes)`
 
 Send custom events with arbitrary attributes.
@@ -534,18 +549,34 @@ player.src({
 
 const tracker = new VideojsTracker(player, { config: { ad: { type: AD_TRACKING.SSAI.MT } } });
 
-// With custom CDN config
+// With optional MediaTailor config
 const tracker = new VideojsTracker(player, {
   config: {
     ad: {
       type: AD_TRACKING.SSAI.MT,
-      segmentPrefix: '/my-cdn-path/',
+      segmentPrefix: '/my-cdn-path/', // custom CDN ad-segment path (non-`/tm/`)
+      trackingUrl: 'https://.../v1/tracking/...', // explicit tracking endpoint override
+      pollIntervalMs: 1000, // override the live poll cadence (100–5000 ms)
     },
   },
 });
 ```
 
-Works with default AWS hostnames and custom CDN domains. See [docs/ssai.md](./docs/ssai.md) for custom CDN setup and advanced options.
+Works with default AWS hostnames and custom CDN domains. The tracking endpoint is
+discovered from an HLS `#EXT-X-DATERANGE CLASS="tracking"` tag when present, then
+from the manifest URL; an explicit `trackingUrl` always wins.
+
+**Ad events & attributes.** The tracker emits the standard ad lifecycle
+(`AD_BREAK_START` → `AD_START` → `AD_QUARTILE` → `AD_END` → `AD_BREAK_END`) plus
+`AD_ERROR` with a semantic `errorCode` for failures (`NO_FILL`, `ADS_TIMEOUT`,
+`TRACKING_FETCH_FAILED`, `TOKEN_EXPIRED`, `MISSING_AVAIL_START`,
+`MANIFEST_TRACKING_MISMATCH`). Ad events carry `adPrimaryId` (stable creative
+identity) alongside `adId` for accurate `count(DISTINCT ...)` in NRDB.
+
+**Public methods.** `tracker.notifyAdSkipped()` reports a user-initiated skip;
+`tracker.stopTracking()` stops polling and unregisters listeners without disposing.
+
+See [docs/ssai.md](./docs/ssai.md) for custom CDN setup and advanced options.
 
 ## Quality/Rendition Tracking
 
