@@ -23,6 +23,7 @@ env:
   AGENT_SLUG: videojs
   AGENT_FILE_PREFIX: streaming-browser-agent-videojs
   AGENT_SUBJECT: Streaming Video & Ads for Browser
+  AGENT_SUBJECT_SLUG: streaming-video-and-ads-for-browser
   # --- Shared docs config (same for all streaming browser agents) ---
   DOCS_FOLDER: src/content/docs/release-notes/streaming-browser-release-notes
 
@@ -69,6 +70,54 @@ jobs:
           echo "${body}" >> "$GITHUB_OUTPUT"
           echo "RELEASE_BODY_EOF" >> "$GITHUB_OUTPUT"
 
+      - name: Parse CHANGELOG sections
+        id: parse
+        env:
+          RELEASE_BODY: ${{ steps.release.outputs.body }}
+        run: |
+          declare -A section_items
+          for k in features enhancements bugs security; do section_items[$k]=""; done
+
+          category_to_key() {
+            local cat="$1"
+            case "$cat" in
+              "New feature"|"New features"|Features|Added)    echo "features" ;;
+              "Bug fix"|"Bug fixes"|"Bug Fixes"|Fixed)      echo "bugs" ;;
+              Improvement|Improvements|Enhancements)        echo "enhancements" ;;
+              Security)                         echo "security" ;;
+              *)  echo "$cat" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9 ]//g; s/ \+/-/g; s/^-//; s/-$//' ;;
+            esac
+          }
+
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^\-[[:space:]]\*\*([^:]+):[[:space:]](.+)\*\*$ ]]; then
+              key=$(category_to_key "${BASH_REMATCH[1]}")
+              item="${BASH_REMATCH[2]}"
+              section_items[$key]+="${item}"$'\x01'
+            fi
+          done <<< "${RELEASE_BODY}"
+
+          yaml_array() {
+            local key="$1"
+            local items="${section_items[$key]}"
+            if [[ -n "$items" ]]; then
+              local json=""
+              IFS=$'\x01' read -ra arr <<< "${items%$'\x01'}"
+              for item in "${arr[@]}"; do
+                escaped=$(printf '%s' "$item" | sed 's/"/\\"/g')
+                json+="\"${escaped}\", "
+              done
+              echo "[${json%, }]"
+            else
+              echo "[]"
+            fi
+          }
+
+          echo "features=$(yaml_array features)" >> "$GITHUB_OUTPUT"
+          echo "enhancements=$(yaml_array enhancements)" >> "$GITHUB_OUTPUT"
+          echo "bugs=$(yaml_array bugs)" >> "$GITHUB_OUTPUT"
+          echo "security=$(yaml_array security)" >> "$GITHUB_OUTPUT"
+
       - name: Clone docs-website
         if: ${{ github.event.inputs.dry_run != 'true' }}
         env:
@@ -92,15 +141,10 @@ jobs:
           tag="${{ steps.release.outputs.tag }}"
           version="${tag#v}"
           releaseDate="${{ steps.release.outputs.releaseDate }}"
-          if [[ -n "${releaseDate}" ]]; then
-            fileDate="${releaseDate:2}"
-          else
-            fileDate=$(date -u "+%y-%m-%d")
-          fi
-          releaseFile="${{ env.DOCS_FOLDER }}/${{ env.AGENT_FILE_PREFIX }}-${fileDate}.mdx"
+          versionSlug="${version//./-}"
+          releaseFile="${{ env.DOCS_FOLDER }}/${{ env.AGENT_SUBJECT_SLUG }}-${{ env.AGENT_SLUG }}-${versionSlug}.mdx"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
           echo "releaseFile=${releaseFile}" >> "$GITHUB_OUTPUT"
-          echo "fileDate=${fileDate}" >> "$GITHUB_OUTPUT"
           echo "releaseDate=${releaseDate}" >> "$GITHUB_OUTPUT"
 
       - name: '[Dry run] Print MDX content'
@@ -113,10 +157,12 @@ jobs:
           echo ""
           printf '%s\n' '---'
           printf '%s\n' 'subject: ${{ env.AGENT_SUBJECT }}'
-          printf "title: Media agent for ${{ env.AGENT_NAME }} v%s\n" "${{ steps.mdx.outputs.version }}"
           printf "releaseDate: '%s'\n" "${{ steps.mdx.outputs.releaseDate }}"
           printf "version: %s\n" "${{ steps.mdx.outputs.version }}"
-          printf "metaDescription: Release notes for Media agent for ${{ env.AGENT_NAME }} version %s\n" "${{ steps.mdx.outputs.version }}"
+          printf "features: %s\n" "${{ steps.parse.outputs.features }}"
+          printf "enhancements: %s\n" "${{ steps.parse.outputs.enhancements }}"
+          printf "bugs: %s\n" "${{ steps.parse.outputs.bugs }}"
+          printf "security: %s\n" "${{ steps.parse.outputs.security }}"
           printf '%s\n' 'category: ${{ env.AGENT_NAME }}'
           printf '%s\n' '---'
           printf '\n'
@@ -131,7 +177,6 @@ jobs:
         run: |
           version="${{ steps.mdx.outputs.version }}"
           releaseDate="${{ steps.mdx.outputs.releaseDate }}"
-          fileDate="${{ steps.mdx.outputs.fileDate }}"
           releaseFile="${{ steps.mdx.outputs.releaseFile }}"
           branchName="add-${{ env.AGENT_SLUG }}-release-notes-$(date -u '+%y-%m-%d')"
           summary="Add release notes for ${{ env.AGENT_NAME }} agent v${version}"
@@ -144,10 +189,12 @@ jobs:
           {
             printf '%s\n' '---'
             printf '%s\n' 'subject: ${{ env.AGENT_SUBJECT }}'
-            printf "title: Media agent for ${{ env.AGENT_NAME }} v%s\n" "${version}"
             printf "releaseDate: '%s'\n" "${releaseDate}"
             printf "version: %s\n" "${version}"
-            printf "metaDescription: Release notes for Media agent for ${{ env.AGENT_NAME }} version %s\n" "${version}"
+            printf "features: %s\n" "${{ steps.parse.outputs.features }}"
+            printf "enhancements: %s\n" "${{ steps.parse.outputs.enhancements }}"
+            printf "bugs: %s\n" "${{ steps.parse.outputs.bugs }}"
+            printf "security: %s\n" "${{ steps.parse.outputs.security }}"
             printf '%s\n' 'category: ${{ env.AGENT_NAME }}'
             printf '%s\n' '---'
             printf '\n'
