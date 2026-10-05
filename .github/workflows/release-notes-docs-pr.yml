@@ -81,10 +81,10 @@ jobs:
           category_to_key() {
             local cat="$1"
             case "$cat" in
-              "New feature"|"New features"|Features|Added)    echo "features" ;;
-              "Bug fix"|"Bug fixes"|"Bug Fixes"|Fixed)      echo "bugs" ;;
-              Improvement|Improvements|Enhancements)        echo "enhancements" ;;
-              Security)                         echo "security" ;;
+              "New feature")   echo "features" ;;
+              "Bug fix")       echo "bugs" ;;
+              "Improvement")   echo "enhancements" ;;
+              "Security")      echo "security" ;;
               *)  echo "$cat" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9 ]//g; s/ \+/-/g; s/^-//; s/-$//' ;;
             esac
           }
