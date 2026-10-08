@@ -12,6 +12,7 @@
           {"type": "feat", "release": "minor"},
           {"type": "fix", "release": "patch"},
           {"type": "perf", "release": "patch"},
+          {"type": "sec", "release": "patch"},
           {"type": "revert", "release": "patch"},
           {"type": "docs", "release": false},
           {"type": "chore", "release": false},
@@ -26,9 +27,10 @@
         "preset": "conventionalcommits",
         "presetConfig": {
           "types": [
-            {"type": "feat", "section": "New features"},
-            {"type": "fix", "section": "Bug fixes"},
-            {"type": "perf", "section": "Improvements"},
+            {"type": "feat", "section": "New feature"},
+            {"type": "fix", "section": "Bug fix"},
+            {"type": "perf", "section": "Improvement"},
+            {"type": "sec", "section": "Security"},
             {"type": "revert", "section": "Reverts", "hidden": true},
             {"type": "docs", "section": "Documentation", "hidden": true},
             {"type": "style", "section": "Styles", "hidden": true},
@@ -38,6 +40,9 @@
             {"type": "build", "section": "Build System", "hidden": true},
             {"type": "ci", "section": "Continuous Integration", "hidden": true}
           ]
+        },
+        "writerOpts": {
+          "mainTemplate": "{{#each commitGroups}}{{#if title}}{{#each commits}}- **{{../title}}: {{subject}}**\n{{/each}}{{/if}}{{/each}}\n"
         }
       }
     ],
