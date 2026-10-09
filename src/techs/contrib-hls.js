@@ -4,6 +4,13 @@ export default class ContribHlsTech {
     this.player = tech.el().player; // Store player reference for playback bitrate calculation
   }
 
+  getSrc() {
+    try {
+      return this.tech.playlists.master.uri;
+    } catch (err) {}
+    return null;
+  }
+
   getRenditionName() {
     try {
       var media = this.tech.playlists.media();
