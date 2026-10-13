@@ -4,7 +4,7 @@ export default class HlsJs {
     this.player = tech.el().player; // Store player reference for currentTime
   }
 
-  getResource(tech) {
+  getSrc(tech) {
     return this.tech.url;
   }
 
