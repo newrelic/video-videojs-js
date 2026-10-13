@@ -1,3 +1,5 @@
+- **Bug fix: getSrc() returns MSE blob: URL instead of manifest URL (VHS & Hls.js techs)**
+
 ## [5.0.0](https://github.com/newrelic/video-videojs-js/compare/v4.2.1...v5.0.0) (2026-09-17)
 
 - **Breaking change:** This release adds a `package.json#exports` map. Deep imports into internal paths of this package will no longer resolve — only the root export (`@newrelic/video-videojs-js`) and the new `/browser` subpath are valid import targets. Update any direct deep-imports before upgrading.
