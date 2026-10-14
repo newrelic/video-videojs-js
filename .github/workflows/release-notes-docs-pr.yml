@@ -151,6 +151,10 @@ jobs:
         if: ${{ github.event.inputs.dry_run == 'true' }}
         env:
           RELEASE_BODY: ${{ steps.release.outputs.body }}
+          PARSE_FEATURES: ${{ steps.parse.outputs.features }}
+          PARSE_ENHANCEMENTS: ${{ steps.parse.outputs.enhancements }}
+          PARSE_BUGS: ${{ steps.parse.outputs.bugs }}
+          PARSE_SECURITY: ${{ steps.parse.outputs.security }}
         run: |
           echo "=== DRY RUN: MDX file that would be created ==="
           echo "File: ${{ steps.mdx.outputs.releaseFile }}"
@@ -159,10 +163,10 @@ jobs:
           printf '%s\n' 'subject: ${{ env.AGENT_SUBJECT }}'
           printf "releaseDate: '%s'\n" "${{ steps.mdx.outputs.releaseDate }}"
           printf "version: %s\n" "${{ steps.mdx.outputs.version }}"
-          printf "features: %s\n" "${{ steps.parse.outputs.features }}"
-          printf "enhancements: %s\n" "${{ steps.parse.outputs.enhancements }}"
-          printf "bugs: %s\n" "${{ steps.parse.outputs.bugs }}"
-          printf "security: %s\n" "${{ steps.parse.outputs.security }}"
+          printf "features: %s\n" "${PARSE_FEATURES}"
+          printf "enhancements: %s\n" "${PARSE_ENHANCEMENTS}"
+          printf "bugs: %s\n" "${PARSE_BUGS}"
+          printf "security: %s\n" "${PARSE_SECURITY}"
           printf '%s\n' 'category: ${{ env.AGENT_NAME }}'
           printf '%s\n' '---'
           printf '\n'
@@ -174,6 +178,10 @@ jobs:
         env:
           GH_TOKEN: ${{ steps.app-token.outputs.token }}
           RELEASE_BODY: ${{ steps.release.outputs.body }}
+          PARSE_FEATURES: ${{ steps.parse.outputs.features }}
+          PARSE_ENHANCEMENTS: ${{ steps.parse.outputs.enhancements }}
+          PARSE_BUGS: ${{ steps.parse.outputs.bugs }}
+          PARSE_SECURITY: ${{ steps.parse.outputs.security }}
         run: |
           version="${{ steps.mdx.outputs.version }}"
           releaseDate="${{ steps.mdx.outputs.releaseDate }}"
@@ -191,10 +199,10 @@ jobs:
             printf '%s\n' 'subject: ${{ env.AGENT_SUBJECT }}'
             printf "releaseDate: '%s'\n" "${releaseDate}"
             printf "version: %s\n" "${version}"
-            printf "features: %s\n" "${{ steps.parse.outputs.features }}"
-            printf "enhancements: %s\n" "${{ steps.parse.outputs.enhancements }}"
-            printf "bugs: %s\n" "${{ steps.parse.outputs.bugs }}"
-            printf "security: %s\n" "${{ steps.parse.outputs.security }}"
+            printf "features: %s\n" "${PARSE_FEATURES}"
+            printf "enhancements: %s\n" "${PARSE_ENHANCEMENTS}"
+            printf "bugs: %s\n" "${PARSE_BUGS}"
+            printf "security: %s\n" "${PARSE_SECURITY}"
             printf '%s\n' 'category: ${{ env.AGENT_NAME }}'
             printf '%s\n' '---'
             printf '\n'
