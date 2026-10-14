@@ -1,3 +1,5 @@
+## [5.0.1](https://github.com/newrelic/video-videojs-js/compare/v5.0.0...v5.0.1) (2026-10-13)
+
 - **Bug fix: getSrc() returns MSE blob: URL instead of manifest URL (VHS & Hls.js techs)**
 
 ## [5.0.0](https://github.com/newrelic/video-videojs-js/compare/v4.2.1...v5.0.0) (2026-09-17)

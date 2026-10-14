@@ -42,7 +42,7 @@
           ]
         },
         "writerOpts": {
-          "mainTemplate": "{{#each commitGroups}}{{#if title}}{{#each commits}}- **{{../title}}: {{subject}}**\n{{/each}}{{/if}}{{/each}}\n"
+          "mainTemplate": "{{> header}}\n{{#each commitGroups}}{{#if title}}{{#each commits}}- **{{../title}}: {{subject}}**\n{{/each}}{{/if}}{{/each}}\n"
         }
       }
     ],
