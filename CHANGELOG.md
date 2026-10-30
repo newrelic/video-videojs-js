@@ -1,8 +1,8 @@
 ## [5.0.2](https://github.com/newrelic/video-videojs-js/compare/v5.0.1...v5.0.2) (2026-10-30)
 
-### Improvements
+### Changed
 
-- **`@newrelic/video-core` updated to 5.1.1** and pinned to this exact version (previously `^5.1.0`), so every build uses the same core release.
+- **Video Core:** Updated the bundled `@newrelic/video-core` dependency to v5.1.1 and pinned it to this exact version (previously `^5.1.0`), so every build uses the same core release.
 - **Dependency pinning:** `dependencies` and `devDependencies` are now pinned to the exact versions already resolved in `package-lock.json`, so a fresh install no longer picks up newly published releases of build tooling.
 
 ## [5.0.1](https://github.com/newrelic/video-videojs-js/compare/v5.0.0...v5.0.1) (2026-10-13)
